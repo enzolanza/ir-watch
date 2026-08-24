@@ -1,0 +1,113 @@
+# Watch list configuration.
+#
+# Only stable properties live here (URLs, toggles, candidate endpoints).
+# Complex, company specific rules live in the corresponding Python adapter.
+#
+# IMPORTANT - candidate_endpoints:
+#   These lists are intentionally EMPTY. The project never fabricates an API
+#   URL. When you confirm a real backend endpoint by inspecting the page's
+#   XHR/fetch traffic in your browser devtools, paste it here; the adapter will
+#   probe it, validate the response shape and only then use it. If the probe
+#   fails for any reason, the adapter transparently falls back to the
+#   documented fallback for that company, so the monitor never breaks.
+
+companies:
+
+  bluefit:
+    name: Bluefit
+    monitor: bluefit
+    enabled: true
+    primary_url: https://ri.bluefit.com.br/informacoes-financeiras/central-de-resultados/
+    # MZ platform. Confirmed: the page is rendered client-side (plain HTTP
+    # returns "Nenhum arquivo para o ano selecionado"), so the fallback is
+    # Playwright until a backend endpoint is confirmed.
+    candidate_endpoints: []
+    pdf_fallback: true
+
+  selfit:
+    name: Selfit
+    monitor: selfit
+    enabled: true
+    primary_url: https://www.selfitacademias.com.br/investidores
+    candidate_endpoints: []
+
+  bodytech:
+    name: Bodytech
+    monitor: bodytech
+    enabled: true
+    primary_url: https://www.bodytech.com.br/pt/politicas/?topico=2
+    candidate_endpoints: []
+    # SPED Central de Balancos: interactive, protected search flow. Left empty
+    # on purpose - the adapter skips the source with a warning rather than
+    # attempting any anti-bot circumvention.
+    sped_candidate_endpoints: []
+    pdf_validation: true
+
+  planet_fitness:
+    name: Planet Fitness
+    monitor: planet_fitness
+    enabled: true
+    primary_url: https://investor.planetfitness.com/news-events/press-releases
+    rss_url: https://investor.planetfitness.com/rss/pressrelease.aspx
+
+  xponential:
+    name: Xponential Fitness
+    monitor: xponential
+    enabled: true
+    primary_url: https://investor.xponential.com/financial-information/quarterly-results
+    rss_url: https://investor.xponential.com/news/rss
+
+  sports_world:
+    name: Sports World
+    monitor: sports_world
+    enabled: true
+    primary_url: https://www.sportsworld.com.mx/inversionistas/centro-de-reportes/reportes-trimestrales
+    probe_enabled: true
+    probe_lookahead: 2
+
+  basic_fit:
+    name: Basic-Fit
+    monitor: basic_fit
+    enabled: true
+    primary_url: https://corporate.basic-fit.com/investors/financial-results
+    press_url: https://corporate.basic-fit.com/investors/press-releases
+    candidate_endpoints: []
+
+  the_gym_group:
+    name: The Gym Group
+    monitor: the_gym_group
+    enabled: true
+    primary_url: https://www.tggplc.com/investors/results-reports-and-presentations/
+    press_url: https://www.tggplc.com/investors/news/
+
+  puregym:
+    name: PureGym
+    monitor: puregym
+    enabled: true
+    # Confirmed live path (the /investor/financial-results/quarterly-results/
+    # URL in the brief now redirects here). Both are tried.
+    primary_url: https://corporate.puregym.com/investors/results-reports-and-presentations/default.aspx
+    overview_url: https://corporate.puregym.com/investors/default.aspx
+    candidate_endpoints: []
+
+  sats:
+    name: SATS
+    monitor: sats
+    enabled: true
+    primary_url: https://satsgroup.com/reports-presentations/
+    news_url: https://satsgroup.com/investor-news/
+
+  benefit_systems:
+    name: Benefit Systems
+    monitor: benefit_systems
+    enabled: true
+    primary_url: https://corp.benefitsystems.pl/en/for-investors/reports/
+
+  leejam:
+    name: Leejam
+    monitor: leejam
+    enabled: true
+    primary_url: https://leejam.com.sa/investor-relations/result-center-and-reports/
+    ir_url: https://leejam.com.sa/investor-relations/result-center-and-reports/
+    tadawul_url: https://www.saudiexchange.sa/wps/portal/saudiexchange/newsandreports/issuer-news/company-announcement?companySymbol=1830
+    tadawul_candidate_endpoints: []
