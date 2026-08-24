@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ir-watch"
+version = "1.0.0"
+description = "Automated monitor for periodic financial and operational disclosures of a fitness peer watch list"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.32",
+    "beautifulsoup4>=4.12",
+    "feedparser>=6.0",
+    "SQLAlchemy>=2.0",
+    "PyYAML>=6.0",
+    "tenacity>=8.2",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+# Only needed for the companies whose fallback path is browser rendering.
+browser = ["playwright>=1.44"]
+# Only needed where the specification requires PDF content validation.
+pdf = ["PyMuPDF>=1.24"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5"]
+
+[project.scripts]
+ir-watch = "ir_monitor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

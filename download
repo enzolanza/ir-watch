@@ -1,0 +1,40 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+# ...except the committed state file used by the zero-dependency setup.
+!state/ir_watch.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tests / tooling
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Playwright artifacts
+playwright-report/
+test-results/
+trace.zip
+*.webm
+.playwright/
+ms-playwright/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

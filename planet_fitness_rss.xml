@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Planet Fitness, Inc. Press Releases</title>
+    <link>https://investor.planetfitness.com/news-events/press-releases</link>
+    <description>Press releases</description>
+    <item>
+      <title>Planet Fitness, Inc. Announces Second Quarter 2026 Results</title>
+      <link>https://investor.planetfitness.com/news-events/press-releases/detail/500/planet-fitness-inc-announces-second-quarter-2026-results</link>
+      <guid isPermaLink="false">pf-500</guid>
+      <pubDate>Thu, 06 Aug 2026 10:45:00 GMT</pubDate>
+      <description>Planet Fitness reported financial results for the quarter ended June 30, 2026.</description>
+    </item>
+    <item>
+      <title>Planet Fitness, Inc. To Report Second Quarter 2026 Results on August 6, 2026</title>
+      <link>https://investor.planetfitness.com/news-events/press-releases/detail/497/planet-fitness-inc-to-report-second-quarter-2026-results</link>
+      <guid isPermaLink="false">pf-497</guid>
+      <pubDate>Wed, 23 Jul 2026 12:00:00 GMT</pubDate>
+      <description>Planet Fitness will report results.</description>
+    </item>
+    <item>
+      <title>Planet Fitness Announces Key Year-End Metrics</title>
+      <link>https://investor.planetfitness.com/news-events/press-releases/detail/470/planet-fitness-announces-key-year-end-metrics</link>
+      <guid isPermaLink="false">pf-470</guid>
+      <pubDate>Mon, 12 Jan 2026 12:00:00 GMT</pubDate>
+      <description>Preliminary operating metrics.</description>
+    </item>
+    <item>
+      <title>Planet Fitness, Inc. Announces Participation in Upcoming Investor Conference</title>
+      <link>https://investor.planetfitness.com/news-events/press-releases/detail/480/participation</link>
+      <guid isPermaLink="false">pf-480</guid>
+      <pubDate>Mon, 02 Mar 2026 12:00:00 GMT</pubDate>
+      <description>Conference participation.</description>
+    </item>
+  </channel>
+</rss>
