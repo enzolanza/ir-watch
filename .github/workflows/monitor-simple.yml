@@ -1,17 +1,13 @@
 name: IR Watch (simple)
 
 # ZERO-DEPENDENCY SETUP
-#
-# No database to provision, no SMTP account, no secrets to configure.
 #   - State lives in state/ir_watch.db, committed back to this repo each run.
 #   - Alerts are opened as GitHub issues; GitHub emails you about them,
 #     provided you watch this repository (Watch -> All Activity).
-#
-# Use this OR monitor.yml, never both: they would fight over the same state.
 
 on:
   schedule:
-    - cron: "23 * * * *"          # hourly, off-peak minute
+    - cron: "23 * * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -27,12 +23,12 @@ on:
         type: boolean
 
 concurrency:
-  group: ir-watch-state          # never two runs writing the state file
+  group: ir-watch-state
   cancel-in-progress: false
 
 permissions:
-  contents: write                # commit the state file back
-  issues: write                  # open alert issues
+  contents: write
+  issues: write
 
 jobs:
   monitor:
@@ -45,12 +41,36 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TIMEZONE: America/Sao_Paulo
       ALERT_ON_REVISION: "false"
-      PLAYWRIGHT_ENABLED: "false"   # keeps each run near one minute
+      PLAYWRIGHT_ENABLED: "false"
       LOG_LEVEL: INFO
       USER_AGENT: "ir-watch/1.0 (peer disclosure monitor; github.com/${{ github.repository }})"
 
     steps:
       - uses: actions/checkout@v4
+
+      # Fails immediately, with a message in plain language, when the upload
+      # to GitHub was incomplete. Without this the job dies with a cryptic
+      # Python error twenty seconds later.
+      - name: Check that all project files are present
+        run: |
+          MISSING=0
+          for path in pyproject.toml config/companies.yaml src/ir_monitor/cli.py; do
+            if [ ! -e "$path" ]; then
+              echo "::error::MISSING: $path"
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" = "1" ]; then
+            echo ""
+            echo "One or more project files did not make it into this repository."
+            echo "Go to the repository home page and upload the missing folder"
+            echo "(Add file -> Upload files), dragging the WHOLE folder at once."
+            echo ""
+            echo "What is currently in the repository root:"
+            ls -a
+            exit 1
+          fi
+          echo "All required files are present."
 
       - uses: actions/setup-python@v5
         with:
@@ -63,21 +83,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e . PyMuPDF
 
+      # The monitor exits non-zero when ANY single company fails, which is a
+      # normal, expected outcome. So the job's success is decided by whether
+      # the run actually completed, not by the exit code alone.
       - name: Run monitor
         id: run
-        continue-on-error: true      # a failing company must not lose the state commit
         run: |
           mkdir -p state
           MODE="${{ github.event.inputs.mode || 'check' }}"
           ARGS=""
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="--dry-run"; fi
-          python -m ir_monitor "$MODE" $ARGS
+          set +e
+          python -m ir_monitor "$MODE" $ARGS 2>&1 | tee monitor-output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - name: Commit state
         if: github.event.inputs.dry_run != 'true'
         run: |
           if [ ! -f state/ir_watch.db ]; then
-            echo "No state file produced; nothing to commit."
+            echo "No state file was produced."
             exit 0
           fi
           git config user.name  "github-actions[bot]"
@@ -85,11 +109,29 @@ jobs:
           git add -f state/ir_watch.db
           git diff --cached --quiet && { echo "State unchanged."; exit 0; }
           git commit -m "chore(state): ir-watch $(date -u +%Y-%m-%dT%H:%MZ)"
-          # Another run may have pushed in the meantime; ours is the newer state.
           git pull --rebase=false -s ours --no-edit || true
           git push
 
-      - name: Surface monitor failures
-        if: steps.run.outcome == 'failure'
+      # This is what makes the green tick trustworthy again.
+      - name: Verdict
         run: |
-          echo "::warning::At least one company failed this run. State was still saved."
+          if ! grep -q "Companies checked:" monitor-output.txt; then
+            echo "::error::The monitor crashed before it finished. Nothing was recorded."
+            echo "Read the 'Run monitor' step above for the reason."
+            exit 1
+          fi
+
+          CHECKED=$(grep "Companies checked:" monitor-output.txt | grep -oE '[0-9]+')
+          OK=$(grep "Successes:" monitor-output.txt | grep -oE '[0-9]+')
+          echo "### IR Watch"                                >> "$GITHUB_STEP_SUMMARY"
+          echo ""                                            >> "$GITHUB_STEP_SUMMARY"
+          echo "- Companies checked: **$CHECKED**"           >> "$GITHUB_STEP_SUMMARY"
+          echo "- Worked: **$OK**"                           >> "$GITHUB_STEP_SUMMARY"
+          grep -E "New events:|Alerts sent:" monitor-output.txt \
+            | sed 's/^/- /'                                  >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${OK:-0}" -eq 0 ]; then
+            echo "::error::Every company failed. This is a real problem, not routine noise."
+            exit 1
+          fi
+          echo "::notice::$OK of $CHECKED companies worked. Partial failures are expected in this simple setup."
