@@ -346,6 +346,39 @@ class TestPeriodNormalization:
         assert leejam_filename_period(None) is None
         assert leejam_filename_period("https://leejam.com.sa/wp-content/x.pdf") is None
 
+    def test_leejam_filename_period_reads_full_year_conventions(self):
+        # Reproduces the production coverage gap found comparing the
+        # pre-fix bootstrap DB (32 events) against the live site after the
+        # first filename fix (22 events): recent filenames use a full
+        # 4-digit year next to the quarter/"annual" marker, not just the
+        # older archive's short 2-digit "18Q3" form. Every one of these is
+        # a real filename from that production database.
+        cases = {
+            "https://leejam.com.sa/wp-content/uploads/2026/02/Earnings-Presentation-Q4-2025-Final.pdf": "Q4/FY-2025",
+            "https://leejam.com.sa/wp-content/uploads/2024/11/Earning-Presentation-Q3-2024-Final.pdf": "Q3/9M-2024",
+            "https://leejam.com.sa/wp-content/uploads/2023/11/EP-2023-Q3.pdf": "Q3/9M-2023",
+            "https://leejam.com.sa/wp-content/uploads/2023/10/2023-Q2.pdf": "Q2/H1-2023",
+            "https://leejam.com.sa/wp-content/uploads/2024/07/Earning-Presentation-Q2-2024.pdf": "Q2/H1-2024",
+            "https://leejam.com.sa/wp-content/uploads/2025/08/Leejam-FS-Q2-2025-Eng.pdf": "Q2/H1-2025",
+            "https://leejam.com.sa/wp-content/uploads/2026/08/Signed-Leejam-Q2-English-FS-2026.pdf": "Q2/H1-2026",
+            "https://leejam.com.sa/wp-content/uploads/2023/05/Q4-FY-2019-Earning-Presentation.pdf": "Q4/FY-2019",
+            "https://leejam.com.sa/wp-content/uploads/2025/03/LEEJAM-Annual-Report-2024-ENGLISH-162pp-FINAL-resupply.pdf": "Q4/FY-2024",
+            "https://leejam.com.sa/wp-content/uploads/2024/05/LEEJAM-Annual-Report-2023.pdf": "Q4/FY-2023",
+        }
+        for url, expected in cases.items():
+            assert leejam_filename_period(url) == expected, url
+
+        # An upload-date-only folder (no quarter/annual marker anywhere in
+        # the filename itself) correctly stays unresolved by filename alone
+        # - it must not guess from the "/2026/05/" path.
+        assert (
+            leejam_filename_period(
+                "https://leejam.com.sa/wp-content/uploads/2026/05/"
+                "LEEJAM-2025-English-156pp-27-March-compressed.pdf"
+            )
+            is None
+        )
+
     def test_leejam_filename_period_ignores_the_upload_date_folder(self):
         # The upload folder is "2023/09" (September); if this were routed
         # through the general PERIOD_END_RE date-triplet check it would read

@@ -69,6 +69,12 @@ ANNUAL_RE = re.compile(r"\bannual\b")
 # DOM text, which a shared table/grid layout can spread across several
 # quarters' links), so this is checked before the generic year/quarter scan.
 _SHORT_YQ_RE = re.compile(r"\b(\d{2})[-_]?q([1-4])\b")
+# Full 4-digit-year filename conventions, e.g. "Q4-2025", "Q4-FY-2025",
+# "2023-Q2", "Signed-Leejam-Q2-English-FS-2026". Checked in
+# leejam_filename_period() after the short form above.
+_FILENAME_QY_FULL_RE = re.compile(r"\bq([1-4])\b[a-z-]{0,20}?(20\d{2})\b")
+_FILENAME_YQ_FULL_RE = re.compile(r"\b(20\d{2})[-_]*q([1-4])\b")
+_FILENAME_ANNUAL_RE = re.compile(r"\bannual[-_]*(?:report)?[-_]*(\d{2,4})\b")
 
 # A year immediately next to the quarter/annual marker, rather than just the
 # first 20xx year found anywhere in the combined text. A report for period X
@@ -361,7 +367,7 @@ def leejam_period(text: str, context: str = "") -> str | None:
 
 
 def leejam_filename_period(url: str | None) -> str | None:
-    """The archive's short filename convention, read from the filename only.
+    """The archive's own filename convention(s), read from the filename only.
 
     Deliberately narrower than leejam_period(): it does not run the
     PERIOD_END_RE date-triplet check, which is meant for prose like "Ending
@@ -370,17 +376,44 @@ def leejam_filename_period(url: str | None) -> str | None:
     ".../uploads/2023/09/20Q1.pdf" contains the literal substring
     "2023-09-20", a false but well-formed date, for a document that is
     actually Q1 2020). Call this first when a URL is available; it returns
-    None for anything that is not this specific "YYq[1-4]" filename shape,
-    so it is safe to fall back to leejam_period(text, context) otherwise.
+    None for anything not matching one of the filename shapes below, so it
+    is safe to fall back to leejam_period(text, context) otherwise.
+
+    Confirmed necessary via the production database (bootstrapped with the
+    pre-fix code): recent filenames use a full 4-digit year next to the
+    quarter/"annual" marker ("Earnings-Presentation-Q4-2025-Final.pdf",
+    "Earning-Presentation-Q3-2024-Final.pdf", "2023-Q2.pdf",
+    "LEEJAM-Annual-Report-2024-....pdf"), not just the older archive's
+    short 2-digit "18Q3" form - and, like Basic-Fit/The Gym Group, the
+    page's own visible text/context around recent links is often too
+    generic to classify from at all.
     """
     if not url:
         return None
-    filename = url.rsplit("/", 1)[-1]
-    match = _SHORT_YQ_RE.search(slug_title(filename))
-    if not match:
-        return None
-    year, quarter = normalize_year(match.group(1)), int(match.group(2))
-    return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
+    filename = slug_title(url.rsplit("/", 1)[-1])
+
+    match = _SHORT_YQ_RE.search(filename)
+    if match:
+        year, quarter = normalize_year(match.group(1)), int(match.group(2))
+        return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
+
+    match = _FILENAME_QY_FULL_RE.search(filename)
+    if match:
+        quarter, year = int(match.group(1)), int(match.group(2))
+        return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
+
+    match = _FILENAME_YQ_FULL_RE.search(filename)
+    if match:
+        year, quarter = int(match.group(1)), int(match.group(2))
+        return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
+
+    match = _FILENAME_ANNUAL_RE.search(filename)
+    if match:
+        digits = match.group(1)
+        year = int(digits) if len(digits) == 4 else normalize_year(digits)
+        return f"Q4/FY-{year}"
+
+    return None
 
 
 def _document_label(text: str) -> str:
