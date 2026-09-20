@@ -184,7 +184,13 @@ class BodytechMonitor(
         soup = self.soup_from(html)
         out: list[CandidateEvent] = []
         seen: set[str] = set()
-        for text, url, anchor in self.iter_links(soup, base_url):
+        all_links = list(self.iter_links(soup, base_url))  # TEMP DEBUG
+        logger.info(  # TEMP DEBUG - remove before merging
+            "DEBUG company=%s source=%s total_links=%d sample=%r",
+            self.key, source, len(all_links),
+            [(t, u) for t, u, _a in all_links[:30]],
+        )
+        for text, url, anchor in all_links:
             low_url = url.lower()
             # Not every document management system serves a link that
             # literally ends in ".pdf" (a query string, a redirect/viewer

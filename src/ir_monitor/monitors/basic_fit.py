@@ -176,6 +176,11 @@ class BasicFitMonitor(
                     link_text=text,
                 )
             )
+        for c in out[:20]:  # TEMP DEBUG - remove before merging
+            logger.info(
+                "DEBUG company=%s title=%r link_text=%r context=%r url=%s",
+                self.key, c.title, c.raw.get("link_text", ""), c.raw.get("context", ""), c.url,
+            )
         return out
 
     # ------------------------------------------------------------------

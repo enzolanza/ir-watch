@@ -14,6 +14,7 @@ happens before any acceptance rule, so plain substring matching never applies.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date
 
@@ -21,6 +22,8 @@ from .. import http
 from ..models import CandidateEvent, EventType, NormalizedEvent
 from ..normalization import canonical_url, parse_date, slug_title, squash
 from .base import CompanyMonitor, HTMLSourceMixin, ParserFailure, candidate
+
+logger = logging.getLogger(__name__)
 
 SOURCE_HTML = "tgg_results_reports_html"
 SOURCE_PRESS = "tgg_press_releases_html"
@@ -97,6 +100,11 @@ class TheGymGroupMonitor(HTMLSourceMixin, CompanyMonitor):
                     publication_date=_nearby_date(anchor),
                     context=_context_text(anchor),
                 )
+            )
+        for c in out[:20]:  # TEMP DEBUG - remove before merging
+            logger.info(
+                "DEBUG company=%s title=%r context=%r url=%s",
+                self.key, c.title, c.raw.get("context", ""), c.url,
             )
         return out
 
