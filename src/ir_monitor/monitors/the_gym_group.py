@@ -171,19 +171,6 @@ class TheGymGroupMonitor(HTMLSourceMixin, CompanyMonitor):
                     context=_context_text(anchor),
                 )
             )
-        # TEMP DEBUG - remove before merging. The first 20 links were all
-        # generic site nav; PDF-like or digit-bearing ones are more likely
-        # to be actual report links, so surface those specifically too.
-        logger.info("DEBUG company=%s total_candidates=%d", self.key, len(out))
-        interesting = [
-            c for c in out
-            if c.url.lower().endswith(".pdf") or any(ch.isdigit() for ch in c.title)
-        ]
-        for c in interesting[:40]:
-            logger.info(
-                "DEBUG company=%s title=%r context=%r url=%s",
-                self.key, c.title, c.raw.get("context", ""), c.url,
-            )
         return out
 
     # ------------------------------------------------------------------

@@ -50,6 +50,16 @@ companies:
     monitor: bodytech
     enabled: true
     primary_url: https://www.bodytech.com.br/pt/politicas/?topico=2
+    # As of 2026-09-20 this URL (static and via Playwright, two different
+    # navigation/click strategies both confirmed live) only ever renders
+    # generic site nav, never the "Publicacoes legais" tab's document list -
+    # even though Google indexes that exact URL with the expected content
+    # ("Demonstracoes Financeiras da A!BODYTECH - Exercicio de 2025"). The
+    # rendered page also lists a "Documentos Gerais" tab at ?topico=4, which
+    # may be where the content moved to. Needs a human with browser devtools
+    # open on this page to find the real interaction/URL - see the
+    # UNRESOLVED comment in monitors/bodytech.py for what was already ruled
+    # out.
     candidate_endpoints: []
     # SPED Central de Balancos: interactive, protected search flow. Left empty
     # on purpose - the adapter skips the source with a warning rather than

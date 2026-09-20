@@ -121,20 +121,24 @@ class BodytechMonitor(
         except Exception as exc:  # noqa: BLE001
             logger.info("company=%s action=static_failed error=%s", self.key, exc)
 
-        # Confirmed via a live inspect-validate DEBUG dump: loading
-        # DEFAULT_URL (with "?topico=2" in the query string) never renders
-        # the "Publicacoes legais" tab's content, static or via Playwright -
-        # the page only reaches ~14-27 generic nav/footer links, none of them
-        # documents. The site routes tabs entirely client-side; the query
-        # string is not read on load, only clicking the matching in-page nav
-        # link switches the visible section. No wait_for selector (the old
-        # "a[href*='.pdf']" one just produced a 30s timeout instead).
-        #
-        # A second DEBUG run showed clicking that same link while already
-        # sitting on that exact URL (goto(url) then click a link *to* url)
-        # left the page byte-for-byte unchanged - a real click needs to be a
-        # state *transition*, so navigate to the topico-less base page first
-        # and click from there instead.
+        # UNRESOLVED - two different Playwright interactions were tried and
+        # confirmed live (via DEBUG dumps of every link on the page), and
+        # both still only reach the same ~14-27 generic nav/footer links,
+        # never the "Publicacoes legais" tab's actual document list:
+        #   1. goto(DEFAULT_URL) (which already has "?topico=2" in it) -
+        #      produced the exact same page as the plain static fetch.
+        #   2. goto(the topico-less base page) then click the in-page
+        #      "Publicacoes legais" nav link - byte-for-byte identical
+        #      output to attempt 1.
+        # Neither the query string nor an in-page click changes what
+        # renders, which rules out both of the obvious explanations. No
+        # wait_for selector at least (the old "a[href*='.pdf']" one just
+        # produced a 30s timeout instead of a fast, if empty, result). This
+        # needs a human with real browser devtools open on
+        # https://www.bodytech.com.br/pt/politicas/?topico=2 to see what
+        # interaction (if any) actually reveals the document list, or
+        # whether the content moved to a different tab/page entirely (the
+        # rendered nav also lists "Documentos Gerais" at ?topico=4).
         base_url = url.split("?", 1)[0]
         html = self.render_html(base_url, click_selector="a[href*='topico=2']")
         items = self.parse_site_html(html, url, SOURCE_SITE_RENDERED)
@@ -191,13 +195,7 @@ class BodytechMonitor(
         soup = self.soup_from(html)
         out: list[CandidateEvent] = []
         seen: set[str] = set()
-        all_links = list(self.iter_links(soup, base_url))  # TEMP DEBUG
-        logger.info(  # TEMP DEBUG - remove before merging
-            "DEBUG company=%s source=%s total_links=%d sample=%r",
-            self.key, source, len(all_links),
-            [(t, u) for t, u, _a in all_links[:30]],
-        )
-        for text, url, anchor in all_links:
+        for text, url, anchor in self.iter_links(soup, base_url):
             low_url = url.lower()
             # Not every document management system serves a link that
             # literally ends in ".pdf" (a query string, a redirect/viewer
