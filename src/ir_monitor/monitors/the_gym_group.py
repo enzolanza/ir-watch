@@ -31,9 +31,14 @@ DEFAULT_PRESS_URL = "https://www.tggplc.com/investors/news/"
 # Rejected first, unconditionally.
 NOTICE_RE = re.compile(r"^\s*notice\s+of\b")
 
-PRE_CLOSE_RE = re.compile(r"^pre-?\s*close\s+trading\s+update\b")
-FULL_YEAR_RE = re.compile(r"^full\s+year\s+results\b")
-INTERIM_RE = re.compile(r"^interim\s+results\b")
+# Not anchored to the start of the title: real link text on the results page
+# routinely carries a date/filetype prefix or a trailing suffix (e.g. "07 Mar
+# 2025 - Full Year Results" or "Full Year Results 2025.pdf"), and NOTICE_RE
+# above already rejects "Notice of ..." titles before these ever run, so a
+# leading-anchor here only causes false negatives, not false positives.
+PRE_CLOSE_RE = re.compile(r"\bpre-?\s*close\s+trading\s+update\b")
+FULL_YEAR_RE = re.compile(r"\bfull\s+year\s+results\b")
+INTERIM_RE = re.compile(r"\binterim\s+results\b")
 
 IGNORE_RE = re.compile(
     r"\b(annual\s+report(\s+and\s+accounts)?|site\s+visit|capital\s+markets\s+day|"

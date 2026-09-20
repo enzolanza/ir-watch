@@ -33,7 +33,7 @@ permissions:
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     env:
       DATABASE_URL: sqlite:///state/ir_watch.db
@@ -41,7 +41,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TIMEZONE: America/Sao_Paulo
       ALERT_ON_REVISION: "false"
-      PLAYWRIGHT_ENABLED: "false"
+      PLAYWRIGHT_ENABLED: "true"
       LOG_LEVEL: INFO
       USER_AGENT: "ir-watch/1.0 (peer disclosure monitor; github.com/${{ github.repository }})"
 
@@ -81,7 +81,8 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e . PyMuPDF
+          pip install -e ".[browser]" PyMuPDF
+          python -m playwright install --with-deps chromium
 
       # The monitor exits non-zero when ANY single company fails, which is a
       # normal, expected outcome. So the job's success is decided by whether

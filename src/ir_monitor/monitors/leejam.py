@@ -187,7 +187,7 @@ class LeejamMonitor(
         buckets: dict[str, dict] = {}
         for text, url, anchor in self.iter_links(soup, base_url):
             block = _block_text(anchor)
-            period = leejam_period(f"{text} {block}") or leejam_period(url)
+            period = leejam_period(text, block) or leejam_period(url)
             if not period:
                 continue
             low = slug_title(f"{text} {url}")
@@ -226,7 +226,7 @@ class LeejamMonitor(
 
     def normalize(self, cand: CandidateEvent, event_type: str) -> NormalizedEvent | None:
         period = cand.raw.get("period") or leejam_period(
-            f"{cand.title} {cand.raw.get('context', '')}"
+            cand.title, cand.raw.get("context", "")
         )
         if not period:
             return None
@@ -254,11 +254,21 @@ class LeejamMonitor(
         )
 
 
-def leejam_period(text: str) -> str | None:
-    """Normalize to Q1-YYYY, Q2/H1-YYYY, Q3/9M-YYYY or Q4/FY-YYYY."""
-    if not text:
+def leejam_period(text: str, context: str = "") -> str | None:
+    """Normalize to Q1-YYYY, Q2/H1-YYYY, Q3/9M-YYYY or Q4/FY-YYYY.
+
+    ``context`` is broader surrounding page text (e.g. the DOM block around a
+    link) that may legitimately carry an explicit date or quarter number, but
+    is also where unrelated page chrome leaks in - a nearby "Annual Reports"
+    navigation heading, for instance. The bare "annual" fallback below is
+    therefore only trusted in ``text`` (the item's own title/link text), never
+    in ``context`` alone, so a Q3 document sitting next to an "Annual
+    Reports" section link is never relabelled Q4/FY.
+    """
+    if not text and not context:
         return None
-    low = slug_title(text)
+    low = slug_title(f"{text} {context}")
+    low_text = slug_title(text)
 
     # Announcements name the period end date, e.g. "... Ending on 2026-03-31".
     match = PERIOD_END_RE.search(low)
@@ -275,7 +285,7 @@ def leejam_period(text: str) -> str | None:
     if quarter_match and year:
         quarter = int(quarter_match.group(1))
         return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
-    if ANNUAL_RE.search(low) and year:
+    if ANNUAL_RE.search(low_text) and year:
         return f"Q4/FY-{year}"
     return None
 

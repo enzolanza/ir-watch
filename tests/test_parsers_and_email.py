@@ -15,6 +15,7 @@ from ir_monitor.emailer import build_subject, render_html, render_plain_text
 from ir_monitor.models import EventType, NormalizedEvent
 from ir_monitor.monitors.benefit_systems import BenefitSystemsMonitor
 from ir_monitor.monitors.planet_fitness import PlanetFitnessMonitor
+from ir_monitor.monitors.puregym import PureGymMonitor
 from ir_monitor.monitors.sats import SATSMonitor
 from ir_monitor.monitors.sports_world import SportsWorldMonitor
 from ir_monitor.monitors.the_gym_group import TheGymGroupMonitor
@@ -86,6 +87,15 @@ class TestTheGymGroupPage:
         titles = {e.title.lower() for e in events}
         assert not any(t.startswith("notice of") for t in titles)
 
+        # Real link text on the live site carries prefixes/suffixes ("PDF -
+        # Full Year Results 2024", "Download: Interim Results 2025 (PDF,
+        # 1.2MB)") that a title starting with anything other than the exact
+        # phrase must still classify - this is what produced 82 candidates /
+        # 0 relevant events against the real page before the anchors were
+        # loosened from "^phrase" to "\bphrase".
+        assert "FY-2024" in periods
+        assert "H1-2025" in periods
+
 
 # ==========================================================================
 class TestSATSPage:
@@ -136,6 +146,71 @@ class TestBenefitSystemsPage:
         assert types.count(EventType.FULL_YEAR_RESULTS) == 1
         # Unrelated current reports were filtered out by the allowlist.
         assert all("management board" not in e.title.lower() for e in events)
+
+    def test_http_error_is_a_clear_parser_failure_not_a_raw_traceback(self, monkeypatch):
+        # Reproduces the production incident: the reports page answered 403
+        # and the unhandled requests.HTTPError crashed the company with a raw
+        # traceback instead of the usual, clearly-labelled ParserFailure every
+        # other adapter produces on a fetch problem.
+        import requests
+
+        from ir_monitor.monitors import benefit_systems as module
+
+        def _raise(url, **kwargs):
+            raise requests.exceptions.HTTPError(
+                "403 Client Error: Forbidden for url: " + url
+            )
+
+        monkeypatch.setattr(module.http, "get_text", _raise)
+        monitor = BenefitSystemsMonitor(cfg("benefit_systems"))
+        with pytest.raises(module.ParserFailure, match="benefit_systems"):
+            monitor.fetch_candidates()
+
+
+# ==========================================================================
+class TestPureGymDiscovery:
+    def test_moved_results_page_is_recovered_from_the_investors_root(self, monkeypatch):
+        # Reproduces the production incident: both hardcoded deep links now
+        # 404. Instead of a third hardcoded guess, the adapter should recover
+        # by following the link to the results page from the stable investors
+        # root, then parse that page normally.
+        import requests
+
+        from ir_monitor.monitors import puregym as module
+
+        root_html = """
+        <html><body>
+        <nav>
+          <a href="/investors/annual-report/default.aspx">Annual Report 2025</a>
+          <a href="/investors/results-and-reports/default.aspx">Results, Reports and Presentations</a>
+        </nav>
+        </body></html>
+        """
+        discovered_url = "https://corporate.puregym.com/investors/results-and-reports/default.aspx"
+        results_html = """
+        <html><body>
+        <div>Q1 2026
+          <a href="/doc_financials/2026/q1/PureGym-Q126-Report.pdf">Report</a>
+          <a href="/doc_financials/2026/q1/PureGym-Q126-Presentation.pdf">Presentation</a>
+        </div>
+        </body></html>
+        """
+
+        def _get_text(url, **kwargs):
+            if url == module.DISCOVERY_ROOT_URL:
+                return root_html
+            if url == discovered_url:
+                return results_html
+            raise requests.exceptions.HTTPError(f"404 Client Error: Not Found for url: {url}")
+
+        monkeypatch.setattr(module.http, "get_text", _get_text)
+        monitor = PureGymMonitor(cfg("puregym"))
+        candidates = monitor.fetch_candidates()
+
+        assert monitor.source_used == module.SOURCE_RESULTS_PAGE
+        assert len(candidates) == 1
+        assert candidates[0].raw.get("period") == "Q1-2026"
+        assert candidates[0].document_url.endswith("PureGym-Q126-Report.pdf")
 
 
 # ==========================================================================

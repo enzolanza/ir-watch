@@ -51,6 +51,12 @@ SOURCE_RENDERED = "puregym_results_rendered"
 DEFAULT_URL = "https://corporate.puregym.com/investors/results-reports-and-presentations/default.aspx"
 LEGACY_URL = "https://corporate.puregym.com/investor/financial-results/quarterly-results/default.aspx"
 DEFAULT_OVERVIEW_URL = "https://corporate.puregym.com/investors/default.aspx"
+# Root of the investor section. Deliberately not a deep link: when the site is
+# restructured again and DEFAULT_URL/LEGACY_URL both go stale, this page is
+# far less likely to move, so it is used to *discover* the current results
+# page instead of hardcoding a third guess.
+DISCOVERY_ROOT_URL = "https://corporate.puregym.com/investors/"
+RESULTS_LINK_RE = re.compile(r"\bresults?\b|\breports?\s+and\s+presentations?\b")
 
 REPORT_LABEL_RE = re.compile(r"\breport\b")
 ANNUAL_REPORT_RE = re.compile(r"\bannual\s+report\b")
@@ -95,6 +101,20 @@ class PureGymMonitor(
                 self.source_used = SOURCE_RESULTS_PAGE
                 return items
 
+        discovered = self._discover_results_url()
+        if discovered:
+            try:
+                html = http.get_text(discovered)
+                items = self.parse_results_html(html, discovered, SOURCE_RESULTS_PAGE)
+                if items:
+                    self.source_used = SOURCE_RESULTS_PAGE
+                    return items
+            except Exception as exc:  # noqa: BLE001
+                logger.info(
+                    "company=%s action=discovered_page_failed url=%s error=%s",
+                    self.key, discovered, exc,
+                )
+
         overview = self.config.option("overview_url", DEFAULT_OVERVIEW_URL)
         try:
             html = http.get_text(overview)
@@ -118,6 +138,30 @@ class PureGymMonitor(
             if extra not in urls:
                 urls.append(extra)
         return urls
+
+    def _discover_results_url(self) -> str | None:
+        """Best-effort recovery when the configured deep links have moved.
+
+        Fetches the stable investors landing page and looks for the link to
+        the results/reports section, instead of hardcoding a fourth guessed
+        URL that could just as easily go stale again.
+        """
+        try:
+            html = http.get_text(DISCOVERY_ROOT_URL)
+        except Exception as exc:  # noqa: BLE001
+            logger.info(
+                "company=%s action=discovery_failed url=%s error=%s",
+                self.key, DISCOVERY_ROOT_URL, exc,
+            )
+            return None
+        soup = self.soup_from(html)
+        for text, url, _anchor in self.iter_links(soup, DISCOVERY_ROOT_URL):
+            low = slug_title(text)
+            if ANNUAL_REPORT_RE.search(low):
+                continue
+            if RESULTS_LINK_RE.search(low):
+                return url
+        return None
 
     # ------------------------------------------------------------------
     def parse_endpoint_payload(self, payload: Any) -> list[CandidateEvent]:
