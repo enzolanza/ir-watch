@@ -54,8 +54,12 @@ IGNORE_RE = re.compile(
 NOTICE_RE = re.compile(r"^\s*(notice|invitation)\s+(of|to)\b")
 
 TRADING_UPDATE_RE = re.compile(r"\btrading\s+update\b")
-HALF_YEAR_RE = re.compile(r"\bhalf[-\s]?year\s+results\b|\bh1\s+results\b")
-FULL_YEAR_RE = re.compile(r"\bfull[-\s]?year\s+results\b|\bfy\s+results\b")
+# The real results table labels a row just "Half Year 2026" / "Full Year
+# 2025" - a bare period, not "Half Year Results" - confirmed from the
+# live inspect-validate DEBUG dump. Matching only "...results"/"h1|fy
+# results" produced zero candidates for either row.
+HALF_YEAR_RE = re.compile(r"\bhalf[-\s]?year\s+(?:results\b|20\d{2}\b)|\bh1\s+results\b")
+FULL_YEAR_RE = re.compile(r"\bfull[-\s]?year\s+(?:results\b|20\d{2}\b)|\bfy\s+results\b")
 
 Q_RE = re.compile(r"\bq([1-4])\b")
 JANUARY_RE = re.compile(r"\bjanuary\b")
@@ -314,7 +318,17 @@ def _first_url(row: dict[str, Any], names: tuple[str, ...]) -> str | None:
     return None
 
 
-def _block_text(anchor, max_levels: int = 4) -> str:
+def _block_text(anchor, max_levels: int = 3) -> str:
+    # On the real results table, each row's own text (date + description +
+    # "View report (pdf)" x N + "Listen") is already ~70 chars - climbing
+    # until 80 chars were accumulated (the old threshold) reliably climbed
+    # one level too far, into a container holding *several* rows, mixing in
+    # other rows' "Capital Markets Day"/"Presentation"/"Webcast" labels and
+    # making every link in the table look excluded (see IGNORE_RE in
+    # classify_basic_fit_title). This produced the real "10 candidates, 0
+    # relevant" incident. A much lower threshold stops at the first level
+    # that has *any* real content instead of the first level that has a lot
+    # of it, which is what a single table row/list item naturally is.
     node = anchor
     best = ""
     for _ in range(max_levels):
@@ -324,6 +338,6 @@ def _block_text(anchor, max_levels: int = 4) -> str:
         text = squash(node.get_text(" ", strip=True))
         if len(text) > len(best):
             best = text
-        if len(best) > 80:
+        if len(best) > 20:
             break
     return best[:500]

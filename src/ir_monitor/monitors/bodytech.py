@@ -121,15 +121,15 @@ class BodytechMonitor(
         except Exception as exc:  # noqa: BLE001
             logger.info("company=%s action=static_failed error=%s", self.key, exc)
 
-        # No wait_for selector: the static attempt above already found the
-        # page's text indexed by search engines even before this fallback
-        # runs, which means the content is not purely client-rendered - the
-        # real blocker was very likely the strict "a[href*='.pdf']" selector
-        # (document links may not literally end in .pdf; see the broadened
-        # match in parse_site_html below), not missing JavaScript rendering.
-        # Requiring that exact selector only produced a 30s timeout instead
-        # of letting networkidle alone decide the page is settled.
-        html = self.render_html(url)
+        # Confirmed via a live inspect-validate DEBUG dump: loading
+        # DEFAULT_URL (with "?topico=2" in the query string) never renders
+        # the "Publicacoes legais" tab's content, static or via Playwright -
+        # the page only reaches ~14-27 generic nav/footer links, none of them
+        # documents. The site routes tabs entirely client-side; the query
+        # string is not read on load, only clicking the matching in-page nav
+        # link switches the visible section. No wait_for selector (the old
+        # "a[href*='.pdf']" one just produced a 30s timeout instead).
+        html = self.render_html(url, click_selector="a[href*='topico=2']")
         items = self.parse_site_html(html, url, SOURCE_SITE_RENDERED)
         self.source_used = SOURCE_SITE_RENDERED
         return items

@@ -333,6 +333,60 @@ class TestBasicFitPage:
         assert periods == {"Q1-2026", "FY-2025"}
         assert types == {EventType.TRADING_UPDATE, EventType.FULL_YEAR_RESULTS}
 
+    def test_table_row_context_is_not_contaminated_by_other_rows(self):
+        # Reproduces the actual real-site structure (pulled from the live
+        # inspect-validate DEBUG dump): a table where every row's link says
+        # the same generic "View report (pdf)" and rows sit close enough
+        # together that the old _block_text (climb until > 80 chars) merged
+        # several rows into one block - including a "Capital Markets Day"
+        # row, and the literal words "Presentation"/"Webcast" from other
+        # rows' columns - which made IGNORE_RE reject every link in the
+        # table, real event type included.
+        html = """
+        <html><body>
+        <table>
+          <tr><th>Date</th><th>Description</th><th>Report</th>
+              <th>Presentation</th><th>Webcast</th></tr>
+          <tr>
+            <td>28 Jul 2026</td><td>Half Year 2026</td>
+            <td><a href="/docs/h1-2026-report.pdf">View report (pdf)</a></td>
+            <td><a href="/docs/h1-2026-presentation.pdf">View report (pdf)</a></td>
+            <td><a href="/webcast/h1-2026">Listen</a></td>
+          </tr>
+          <tr>
+            <td>21 Apr 2026</td><td>Capital Markets day 2026</td>
+            <td><a href="/docs/cmd-2026.pdf">View report (pdf)</a></td>
+            <td><a href="/docs/cmd-2026-presentation.pdf">View report (pdf)</a></td>
+            <td><a href="/webcast/cmd-2026">Listen</a></td>
+          </tr>
+          <tr>
+            <td>16 Apr 2026</td><td>Q1 2026 Trading Update</td>
+            <td><a href="/docs/q1-2026-tu.pdf">View report (pdf)</a></td>
+            <td><a href="/docs/q1-2026-tu-presentation.pdf">View report (pdf)</a></td>
+            <td><a href="/webcast/q1-2026-tu">Listen</a></td>
+          </tr>
+        </table>
+        </body></html>
+        """
+        monitor = BasicFitMonitor(cfg("basic_fit"))
+        candidates = monitor.parse_results_html(
+            html, "https://corporate.basic-fit.com/", "basic_fit_results_rendered"
+        )
+        events = []
+        for cand in candidates:
+            event_type = monitor.classify(cand)
+            if event_type:
+                event = monitor.normalize(cand, event_type)
+                if event:
+                    events.append(event)
+
+        periods = {e.reporting_period for e in events}
+        # The real bug: this used to be an empty set (everything excluded).
+        assert "H1-2026" in periods
+        assert "Q1-2026" in periods
+        # Capital Markets Day stays excluded, same as before.
+        assert not any("cmd" in (e.primary_url or "") for e in events)
+
 
 # ==========================================================================
 class TestBodytechPage:

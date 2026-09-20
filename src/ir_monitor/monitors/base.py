@@ -248,6 +248,7 @@ class PlaywrightFallbackMixin:
         url: str,
         *,
         wait_for: str | None = None,
+        click_selector: str | None = None,
         timeout_ms: int = 30_000,
     ) -> str:
         from ..config import get_settings
@@ -276,6 +277,17 @@ class PlaywrightFallbackMixin:
             try:
                 page = browser.new_page(user_agent=USER_AGENT)
                 page.goto(url, timeout=timeout_ms, wait_until="networkidle")
+                if click_selector:
+                    # Some sites route tabs/sections entirely client-side: a
+                    # query string in the URL (e.g. "?topico=2") is never
+                    # read on load, only a click on the matching in-page nav
+                    # link switches the visible content. Confirmed for
+                    # Bodytech's "Publicacoes legais" tab via a live
+                    # inspect-validate run: loading the URL directly, with
+                    # or without Playwright, only ever renders the default
+                    # tab's content.
+                    page.click(click_selector, timeout=timeout_ms)
+                    page.wait_for_load_state("networkidle", timeout=timeout_ms)
                 if wait_for:
                     page.wait_for_selector(wait_for, timeout=timeout_ms)
                 return page.content()
