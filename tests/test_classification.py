@@ -303,6 +303,28 @@ class TestPeriodNormalization:
         assert leejam_period("1st Quarter 2026") == "Q1-2026"
         assert leejam_period("3rd Quarter 2026") == "Q3/9M-2026"
 
+    def test_leejam_annual_nav_noise_does_not_relabel_a_quarter_document(self):
+        # Reproduces the September 2026 bug: a Q3 document sitting next to an
+        # "Annual Reports" navigation section on the IR Result Center page
+        # must not be relabelled Q4/FY just because "annual" appears nearby.
+        # The document's own title has no explicit quarter/date, so with no
+        # trustworthy signal at all it must come back empty rather than guess.
+        assert (
+            leejam_period(
+                "Financial Statements",
+                "Annual Reports Archive 2026 - Financial Statements",
+            )
+            is None
+        )
+        # A genuine annual document is unaffected: "annual" is in its own text.
+        assert leejam_period("Annual Consolidated Financial Results 2026") == "Q4/FY-2026"
+        # An explicit quarter number anywhere (title or context) still wins,
+        # regardless of unrelated "annual" noise in the context.
+        assert (
+            leejam_period("Q3 2026 Financial Statements", "Annual Reports Archive")
+            == "Q3/9M-2026"
+        )
+
 
 # ==========================================================================
 # Bluefit / Selfit / Bodytech

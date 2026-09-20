@@ -72,7 +72,20 @@ class BenefitSystemsMonitor(HTMLSourceMixin, CompanyMonitor):
 
     def fetch_candidates(self) -> list[CandidateEvent]:
         url = self.config.primary_url or DEFAULT_URL
-        html = http.get_text(url)
+        try:
+            html = http.get_text(url)
+        except Exception as exc:  # noqa: BLE001
+            # A persistent 403 here (as opposed to a transient network error,
+            # which http.request() already retries) usually means the site is
+            # blocking the request at the WAF/bot-detection layer rather than
+            # anything this parser can fix. Surface it as a clear, distinct
+            # ParserFailure instead of an unhandled traceback; no attempt is
+            # made to spoof headers or otherwise get around the block.
+            raise ParserFailure(
+                f"benefit_systems: could not fetch reports page ({type(exc).__name__}: "
+                f"{exc}) - if this persists, verify manually whether the site is "
+                "blocking automated requests"
+            ) from exc
         items = self.parse_reports_page(html, url)
         if not items:
             raise ParserFailure("benefit_systems: reports listing produced no items")
