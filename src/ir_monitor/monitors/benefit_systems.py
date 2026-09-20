@@ -16,6 +16,7 @@ of corporate and regulatory current reports.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date
 
@@ -29,6 +30,8 @@ from ..normalization import (
     squash,
 )
 from .base import CompanyMonitor, HTMLSourceMixin, ParserFailure, candidate
+
+logger = logging.getLogger(__name__)
 
 SOURCE_HTML = "benefit_systems_reports_html"
 
@@ -74,23 +77,33 @@ class BenefitSystemsMonitor(HTMLSourceMixin, CompanyMonitor):
         url = self.config.primary_url or DEFAULT_URL
         try:
             html = http.get_text(url)
+            items = self.parse_reports_page(html, url)
+            if items:
+                self.source_used = SOURCE_HTML
+                return items
         except Exception as exc:  # noqa: BLE001
             # A persistent 403 here (as opposed to a transient network error,
             # which http.request() already retries) usually means the site is
             # blocking the request at the WAF/bot-detection layer rather than
-            # anything this parser can fix. Surface it as a clear, distinct
-            # ParserFailure instead of an unhandled traceback; no attempt is
-            # made to spoof headers or otherwise get around the block.
+            # anything this parser can fix. Confirmed live on 2026-09-20 that
+            # this is not just this one path: the site's own Polish-language
+            # investor section (corp.benefitsystems.pl/dla-inwestora/, a
+            # different path on the *same* domain) 403s identically, so the
+            # whole domain is blocking this monitor, not just this URL - no
+            # same-domain alternate path is worth trying next. Surfaced as a
+            # clear, distinct ParserFailure instead of an unhandled
+            # traceback; no attempt is made to spoof headers or otherwise
+            # get around the block.
             raise ParserFailure(
                 f"benefit_systems: could not fetch reports page ({type(exc).__name__}: "
-                f"{exc}) - if this persists, verify manually whether the site is "
-                "blocking automated requests"
+                f"{exc}) - confirmed live as of 2026-09-20, and confirmed not "
+                "path-specific (the Polish-language path on the same domain 403s "
+                "too). Verify manually whether the site is blocking automated "
+                "requests; see the GPW ESPI/EBI lead in config/companies.yaml for a "
+                "possible official alternate source on a different domain"
             ) from exc
-        items = self.parse_reports_page(html, url)
-        if not items:
-            raise ParserFailure("benefit_systems: reports listing produced no items")
-        self.source_used = SOURCE_HTML
-        return items
+
+        raise ParserFailure("benefit_systems: reports listing produced no items")
 
     def parse_reports_page(self, html: str, base_url: str) -> list[CandidateEvent]:
         soup = self.soup_from(html)

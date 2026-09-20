@@ -90,11 +90,15 @@ class PureGymMonitor(
             self.source_used = SOURCE_ENDPOINT
             return self.parse_endpoint_payload(payload)
 
+        saw_404 = []
+
         for url in self._page_urls():
             try:
                 html = http.get_text(url)
             except Exception as exc:  # noqa: BLE001
                 logger.info("company=%s action=page_failed url=%s error=%s", self.key, url, exc)
+                if "404" in str(exc):
+                    saw_404.append(url)
                 continue
             items = self.parse_results_html(html, url, SOURCE_RESULTS_PAGE)
             if items:
@@ -114,6 +118,16 @@ class PureGymMonitor(
                     "company=%s action=discovered_page_failed url=%s error=%s",
                     self.key, discovered, exc,
                 )
+                if "404" in str(exc):
+                    saw_404.append(discovered)
+        else:
+            # DISCOVERY_ROOT_URL 404ing too is a stronger signal than any
+            # individual deep link 404ing: a real search engine still has
+            # DEFAULT_URL indexed as "PureGym - Investors - Results, Reports
+            # & Presentations" as of 2026-09, so the configured address is
+            # not stale - the whole /investors/ section appears to be
+            # rejecting this monitor's requests specifically.
+            saw_404.append(DISCOVERY_ROOT_URL)
 
         overview = self.config.option("overview_url", DEFAULT_OVERVIEW_URL)
         try:
@@ -124,10 +138,23 @@ class PureGymMonitor(
                 return items
         except Exception as exc:  # noqa: BLE001
             logger.info("company=%s action=overview_failed error=%s", self.key, exc)
+            if "404" in str(exc):
+                saw_404.append(overview)
 
         html = self.render_html(self._page_urls()[0])
         items = self.parse_results_html(html, self._page_urls()[0], SOURCE_RENDERED)
         if not items:
+            if len(saw_404) >= 3:
+                raise ParserFailure(
+                    "puregym: no source produced quarterly reports, and "
+                    f"{len(saw_404)} different corporate.puregym.com URLs "
+                    "returned 404 (including the stable /investors/ root, "
+                    "which search engines still index as live) - this looks "
+                    "like the whole investors section is rejecting this "
+                    "monitor's requests, not that the pages moved; verify "
+                    "by loading one of the configured URLs in an ordinary "
+                    "browser before changing any URL here"
+                )
             raise ParserFailure("puregym: no source produced quarterly reports")
         self.source_used = SOURCE_RENDERED
         return items

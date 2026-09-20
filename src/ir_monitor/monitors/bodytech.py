@@ -52,7 +52,7 @@ CNPJ = "07.737.623/0001-90"
 CNPJ_DIGITS = "07737623000190"
 
 FINANCIAL_SECTION_RE = re.compile(
-    r"demonstra[c\u00e7][o\u00f5]es\s+financeiras"
+    r"demonstra[c\u00e7][o\u00f5]es\s+financeiras|\bbalan[c\u00e7]o(?:s)?\b"
 )
 EXCLUDE_RE = re.compile(
     r"outras\s+publica[c\u00e7][o\u00f5]es\s+legais|\bata\b|assembleia|edital|"
@@ -121,7 +121,26 @@ class BodytechMonitor(
         except Exception as exc:  # noqa: BLE001
             logger.info("company=%s action=static_failed error=%s", self.key, exc)
 
-        html = self.render_html(url, wait_for="a[href*='.pdf']")
+        # UNRESOLVED - two different Playwright interactions were tried and
+        # confirmed live (via DEBUG dumps of every link on the page), and
+        # both still only reach the same ~14-27 generic nav/footer links,
+        # never the "Publicacoes legais" tab's actual document list:
+        #   1. goto(DEFAULT_URL) (which already has "?topico=2" in it) -
+        #      produced the exact same page as the plain static fetch.
+        #   2. goto(the topico-less base page) then click the in-page
+        #      "Publicacoes legais" nav link - byte-for-byte identical
+        #      output to attempt 1.
+        # Neither the query string nor an in-page click changes what
+        # renders, which rules out both of the obvious explanations. No
+        # wait_for selector at least (the old "a[href*='.pdf']" one just
+        # produced a 30s timeout instead of a fast, if empty, result). This
+        # needs a human with real browser devtools open on
+        # https://www.bodytech.com.br/pt/politicas/?topico=2 to see what
+        # interaction (if any) actually reveals the document list, or
+        # whether the content moved to a different tab/page entirely (the
+        # rendered nav also lists "Documentos Gerais" at ?topico=4).
+        base_url = url.split("?", 1)[0]
+        html = self.render_html(base_url, click_selector="a[href*='topico=2']")
         items = self.parse_site_html(html, url, SOURCE_SITE_RENDERED)
         self.source_used = SOURCE_SITE_RENDERED
         return items
@@ -177,12 +196,34 @@ class BodytechMonitor(
         out: list[CandidateEvent] = []
         seen: set[str] = set()
         for text, url, anchor in self.iter_links(soup, base_url):
-            if not url.lower().endswith(".pdf"):
+            low_url = url.lower()
+            # Not every document management system serves a link that
+            # literally ends in ".pdf" (a query string, a redirect/viewer
+            # path, or a download endpoint are all common); requiring the
+            # bare suffix was producing zero candidates even when the page
+            # itself was reachable and its "Demonstracoes Financeiras"
+            # section text was present. Still gated on the surrounding
+            # section actually being that financial-statements section, so
+            # this does not turn every link on the page into a candidate.
+            looks_like_document = (
+                low_url.endswith(".pdf")
+                or ".pdf?" in low_url
+                or "/download" in low_url
+                or "arquivo" in low_url
+            )
+            if not looks_like_document:
                 continue
             if url in seen:
                 continue
             seen.add(url)
             section = _section_for(anchor)
+            if not FINANCIAL_SECTION_RE.search(slug_title(section)) and not low_url.endswith(
+                ".pdf"
+            ):
+                # Non-.pdf links are only trustworthy when they are clearly
+                # inside the financial-statements section; a bare ".pdf"
+                # link is kept regardless, matching the previous behaviour.
+                continue
             out.append(
                 candidate(
                     self.key,
@@ -269,7 +310,13 @@ def bodytech_fiscal_year(text: str) -> int | None:
     return max(years) if years else None
 
 
-def _section_for(anchor, max_levels: int = 6) -> str:
+def _section_for(anchor, max_levels: int = 3) -> str:
+    # Kept shallow on purpose: climbing far enough to reach a page-wide
+    # container (e.g. <body>) risks folding in a *different* section's text
+    # (this is what let a non-.pdf link outside the financial-statements
+    # section pass the FINANCIAL_SECTION_RE check below when this used to
+    # default to 6 levels) - the same class of cross-section contamination
+    # found in Leejam's period detection.
     node = anchor
     best = ""
     for _ in range(max_levels):

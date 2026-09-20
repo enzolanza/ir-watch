@@ -63,6 +63,38 @@ PERIOD_END_RE = re.compile(r"(20\d{2})[-/](\d{2})[-/](\d{2})")
 QUARTER_WORD_RE = re.compile(r"\b([1-4])(?:st|nd|rd|th)\s+quarter\b")
 ANNUAL_RE = re.compile(r"\bannual\b")
 
+# The IR Result Center's own filename convention for its older archive, e.g.
+# "18Q3.pdf" = Q3 2018, "22Q1.pdf" = Q1 2022. A document's own filename is
+# the least contamination-prone period signal available (unlike surrounding
+# DOM text, which a shared table/grid layout can spread across several
+# quarters' links), so this is checked before the generic year/quarter scan.
+_SHORT_YQ_RE = re.compile(r"\b(\d{2})[-_]?q([1-4])\b")
+# Full 4-digit-year filename conventions, e.g. "Q4-2025", "Q4-FY-2025",
+# "2023-Q2", "Signed-Leejam-Q2-English-FS-2026". Checked in
+# leejam_filename_period() after the short form above.
+_FILENAME_QY_FULL_RE = re.compile(r"\bq([1-4])\b[a-z-]{0,20}?(20\d{2})\b")
+_FILENAME_YQ_FULL_RE = re.compile(r"\b(20\d{2})[-_]*q([1-4])\b")
+_FILENAME_ANNUAL_RE = re.compile(r"\bannual[-_]*(?:report)?[-_]*(\d{2,4})\b")
+
+# A year immediately next to the quarter/annual marker, rather than just the
+# first 20xx year found anywhere in the combined text. A report for period X
+# published early in year X+1 routinely shows both years close together (the
+# publish/upload date and the period itself), and taking "the first year in
+# the string" silently preferred whichever of the two came first in the DOM.
+#
+# The "quarter immediately followed by year" shape ("Q4 2025", "Q4-2025") is
+# the natural labelling convention and is checked first/tightest, since a
+# looser bidirectional search (matching a year *before* the quarter too)
+# would otherwise let an unrelated, earlier "2026" publish-date win just for
+# appearing first in the string, even when "Q4 2025" is right there.
+_QUARTER_THEN_YEAR_RE = re.compile(r"\bq([1-4])\b[\s-]{0,3}(20\d{2})\b")
+_YEAR_NEAR_QUARTER_RE = re.compile(
+    r"\bq([1-4])\b[^0-9]{0,20}(20\d{2})|(20\d{2})[^0-9]{0,20}\bq([1-4])\b"
+)
+_YEAR_NEAR_ANNUAL_RE = re.compile(
+    r"\bannual\b[^0-9]{0,25}(20\d{2})|(20\d{2})[^0-9]{0,25}\bannual\b"
+)
+
 # Month of period end -> normalized reporting period label
 _MONTH_END_TO_PERIOD = {3: "Q1", 6: "Q2/H1", 9: "Q3/9M", 12: "Q4/FY"}
 _QUARTER_TO_LABEL = {1: "Q1", 2: "Q2/H1", 3: "Q3/9M", 4: "Q4/FY"}
@@ -187,7 +219,16 @@ class LeejamMonitor(
         buckets: dict[str, dict] = {}
         for text, url, anchor in self.iter_links(soup, base_url):
             block = _block_text(anchor)
-            period = leejam_period(text, block) or leejam_period(url)
+            # Filename first: it is the single most specific, least
+            # contamination-prone signal (see leejam_filename_period()'s
+            # docstring), ahead of the page's own text/block, which a
+            # shared table/grid archive layout can spread across several
+            # quarters' links.
+            period = (
+                leejam_filename_period(url)
+                or leejam_period(text, block)
+                or leejam_filename_period(text)
+            )
             if not period:
                 continue
             low = slug_title(f"{text} {url}")
@@ -270,13 +311,48 @@ def leejam_period(text: str, context: str = "") -> str | None:
     low = slug_title(f"{text} {context}")
     low_text = slug_title(text)
 
-    # Announcements name the period end date, e.g. "... Ending on 2026-03-31".
+    # 1. Explicit period-end date (Tadawul announcements) - unambiguous.
     match = PERIOD_END_RE.search(low)
     if match:
         year, month = int(match.group(1)), int(match.group(2))
         label = _MONTH_END_TO_PERIOD.get(month)
         if label:
             return f"{label}-{year}"
+
+    # 2. The document's own short filename convention ("18Q3" -> Q3 2018),
+    #    when that text is visible on the page itself (see
+    #    leejam_filename_period() below for the URL/filename equivalent,
+    #    which callers should try first - it is not routed through the
+    #    PERIOD_END_RE date-triplet check above, which is meant for prose
+    #    dates and can misread a "/uploads/YYYY/MM/" folder in a URL path as
+    #    the document's own period end date).
+    short = _SHORT_YQ_RE.search(low_text) or _SHORT_YQ_RE.search(low)
+    if short:
+        year, quarter = normalize_year(short.group(1)), int(short.group(2))
+        return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
+
+    # 3. A quarter number with a year stated close to it, preferred over the
+    #    first year found anywhere (see _QUARTER_THEN_YEAR_RE above).
+    tight_quarter = _QUARTER_THEN_YEAR_RE.search(low)
+    if tight_quarter:
+        quarter, year = int(tight_quarter.group(1)), int(tight_quarter.group(2))
+        return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
+    near_quarter = _YEAR_NEAR_QUARTER_RE.search(low)
+    if near_quarter:
+        quarter = int(near_quarter.group(1) or near_quarter.group(4))
+        year = int(near_quarter.group(2) or near_quarter.group(3))
+        return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
+
+    # 4. "Annual"/FY, same principle: a year close to the word wins over the
+    #    first year anywhere. Only trusted in the item's own text (never in
+    #    context alone - see the class docstring above on nav contamination).
+    if ANNUAL_RE.search(low_text):
+        near_annual = _YEAR_NEAR_ANNUAL_RE.search(low_text) or _YEAR_NEAR_ANNUAL_RE.search(
+            low
+        )
+        if near_annual:
+            year = int(near_annual.group(1) or near_annual.group(2))
+            return f"Q4/FY-{year}"
 
     year_match = re.search(r"\b(20\d{2})\b", low)
     year = int(year_match.group(1)) if year_match else None
@@ -287,6 +363,56 @@ def leejam_period(text: str, context: str = "") -> str | None:
         return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
     if ANNUAL_RE.search(low_text) and year:
         return f"Q4/FY-{year}"
+    return None
+
+
+def leejam_filename_period(url: str | None) -> str | None:
+    """The archive's own filename convention(s), read from the filename only.
+
+    Deliberately narrower than leejam_period(): it does not run the
+    PERIOD_END_RE date-triplet check, which is meant for prose like "Ending
+    on 2026-03-31" and would otherwise misread a "/uploads/YYYY/MM/" upload
+    folder in the URL's path as the document's own period-end date (e.g.
+    ".../uploads/2023/09/20Q1.pdf" contains the literal substring
+    "2023-09-20", a false but well-formed date, for a document that is
+    actually Q1 2020). Call this first when a URL is available; it returns
+    None for anything not matching one of the filename shapes below, so it
+    is safe to fall back to leejam_period(text, context) otherwise.
+
+    Confirmed necessary via the production database (bootstrapped with the
+    pre-fix code): recent filenames use a full 4-digit year next to the
+    quarter/"annual" marker ("Earnings-Presentation-Q4-2025-Final.pdf",
+    "Earning-Presentation-Q3-2024-Final.pdf", "2023-Q2.pdf",
+    "LEEJAM-Annual-Report-2024-....pdf"), not just the older archive's
+    short 2-digit "18Q3" form - and, like Basic-Fit/The Gym Group, the
+    page's own visible text/context around recent links is often too
+    generic to classify from at all.
+    """
+    if not url:
+        return None
+    filename = slug_title(url.rsplit("/", 1)[-1])
+
+    match = _SHORT_YQ_RE.search(filename)
+    if match:
+        year, quarter = normalize_year(match.group(1)), int(match.group(2))
+        return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
+
+    match = _FILENAME_QY_FULL_RE.search(filename)
+    if match:
+        quarter, year = int(match.group(1)), int(match.group(2))
+        return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
+
+    match = _FILENAME_YQ_FULL_RE.search(filename)
+    if match:
+        year, quarter = int(match.group(1)), int(match.group(2))
+        return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
+
+    match = _FILENAME_ANNUAL_RE.search(filename)
+    if match:
+        digits = match.group(1)
+        year = int(digits) if len(digits) == 4 else normalize_year(digits)
+        return f"Q4/FY-{year}"
+
     return None
 
 

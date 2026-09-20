@@ -54,8 +54,12 @@ IGNORE_RE = re.compile(
 NOTICE_RE = re.compile(r"^\s*(notice|invitation)\s+(of|to)\b")
 
 TRADING_UPDATE_RE = re.compile(r"\btrading\s+update\b")
-HALF_YEAR_RE = re.compile(r"\bhalf[-\s]?year\s+results\b|\bh1\s+results\b")
-FULL_YEAR_RE = re.compile(r"\bfull[-\s]?year\s+results\b|\bfy\s+results\b")
+# The real results table labels a row just "Half Year 2026" / "Full Year
+# 2025" - a bare period, not "Half Year Results" - confirmed from the
+# live inspect-validate DEBUG dump. Matching only "...results"/"h1|fy
+# results" produced zero candidates for either row.
+HALF_YEAR_RE = re.compile(r"\bhalf[-\s]?year\s+(?:results\b|20\d{2}\b)|\bh1\s+results\b")
+FULL_YEAR_RE = re.compile(r"\bfull[-\s]?year\s+(?:results\b|20\d{2}\b)|\bfy\s+results\b")
 
 Q_RE = re.compile(r"\bq([1-4])\b")
 JANUARY_RE = re.compile(r"\bjanuary\b")
@@ -170,7 +174,12 @@ class BasicFitMonitor(
                     source,
                     title,
                     url=url,
-                    document_url=url if url.lower().endswith(".pdf") else None,
+                    # Real links carry a query string after the extension
+                    # (e.g. "....pdf?a=6zowfKguC7uXelEv9o4ssJ"), so this
+                    # never matched .endswith(".pdf") in production -
+                    # harmless in practice (normalize() below already falls
+                    # back to cand.url), but worth being correct about.
+                    document_url=url if ".pdf" in url.lower() else None,
                     publication_date=parse_date(block[:120]),
                     context=block,
                     link_text=text,
@@ -180,7 +189,17 @@ class BasicFitMonitor(
 
     # ------------------------------------------------------------------
     def classify(self, cand: CandidateEvent) -> str | None:
-        return classify_basic_fit_title(f"{cand.title} {cand.raw.get('link_text', '')}")
+        # The fetch-time filter in parse_results_html() already requires a
+        # match against title+block before a candidate is even created (see
+        # TRADING_UPDATE_RE/HALF_YEAR_RE/FULL_YEAR_RE there), and normalize()
+        # below already looks at the same context - classify() was the one
+        # place still checking title+link_text only, so a link whose own
+        # visible text is generic ("Download", a bare date) while the
+        # qualifying phrase lives in the surrounding block was let through
+        # as a candidate but then always classified as irrelevant.
+        return classify_basic_fit_title(
+            f"{cand.title} {cand.raw.get('link_text', '')} {cand.raw.get('context', '')}"
+        )
 
     def normalize(self, cand: CandidateEvent, event_type: str) -> NormalizedEvent | None:
         period = basic_fit_period(
@@ -299,7 +318,22 @@ def _first_url(row: dict[str, Any], names: tuple[str, ...]) -> str | None:
     return None
 
 
-def _block_text(anchor, max_levels: int = 4) -> str:
+def _block_text(anchor, max_levels: int = 3) -> str:
+    # Confirmed via two live DEBUG dumps against the real results table:
+    # the anchor's immediate parent is an "actions" cell shared by the
+    # Report/Presentation/Listen links alone (~44 chars: "View report (pdf)
+    # View report (pdf) Listen" - no date, no description), and the row's
+    # *own* full text, including the date and description that actually
+    # carry the classifying phrase ("Half Year 2026", "Q1 2026 Trading
+    # Update"), lives one level further up (~70 chars). A too-low threshold
+    # (20, tried first) stopped at the actions cell before ever reaching
+    # that text - 0 relevant despite 10 candidates. A too-high one (80,
+    # the original) climbed one level too far *past* the row into a
+    # container holding several rows, mixing in other rows'
+    # "Capital Markets Day"/"Presentation"/"Webcast" labels and making
+    # IGNORE_RE reject everything instead. 50 sits between the two real
+    # levels seen live (44 and ~70), so it skips the actions cell but
+    # stops at the row.
     node = anchor
     best = ""
     for _ in range(max_levels):
@@ -309,6 +343,6 @@ def _block_text(anchor, max_levels: int = 4) -> str:
         text = squash(node.get_text(" ", strip=True))
         if len(text) > len(best):
             best = text
-        if len(best) > 80:
+        if len(best) > 50:
             break
     return best[:500]

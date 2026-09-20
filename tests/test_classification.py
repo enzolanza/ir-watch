@@ -15,7 +15,7 @@ from ir_monitor.monitors.benefit_systems import (
 )
 from ir_monitor.monitors.bluefit import classify_bluefit_document
 from ir_monitor.monitors.bodytech import bodytech_fiscal_year, classify_bodytech_document
-from ir_monitor.monitors.leejam import leejam_period
+from ir_monitor.monitors.leejam import leejam_filename_period, leejam_period
 from ir_monitor.monitors.planet_fitness import (
     classify_planet_fitness_title,
     planet_fitness_period,
@@ -323,6 +323,95 @@ class TestPeriodNormalization:
         assert (
             leejam_period("Q3 2026 Financial Statements", "Annual Reports Archive")
             == "Q3/9M-2026"
+        )
+
+    def test_leejam_filename_period_reads_the_archive_short_form(self):
+        # Reproduces "Q1-2018 -> 18Q3.pdf": the filename's own two-digit
+        # year + quarter convention was never parsed at all, so this
+        # document fell back to whatever quarter/year happened to be
+        # nearest in the surrounding DOM (a shared table/grid cell it does
+        # not actually belong to).
+        assert (
+            leejam_filename_period(
+                "https://leejam.com.sa/wp-content/uploads/2023/05/18Q3.pdf"
+            )
+            == "Q3/9M-2018"
+        )
+        assert (
+            leejam_filename_period(
+                "https://leejam.com.sa/wp-content/uploads/2023/05/22Q1.pdf"
+            )
+            == "Q1-2022"
+        )
+        assert leejam_filename_period(None) is None
+        assert leejam_filename_period("https://leejam.com.sa/wp-content/x.pdf") is None
+
+    def test_leejam_filename_period_reads_full_year_conventions(self):
+        # Reproduces the production coverage gap found comparing the
+        # pre-fix bootstrap DB (32 events) against the live site after the
+        # first filename fix (22 events): recent filenames use a full
+        # 4-digit year next to the quarter/"annual" marker, not just the
+        # older archive's short 2-digit "18Q3" form. Every one of these is
+        # a real filename from that production database.
+        cases = {
+            "https://leejam.com.sa/wp-content/uploads/2026/02/Earnings-Presentation-Q4-2025-Final.pdf": "Q4/FY-2025",
+            "https://leejam.com.sa/wp-content/uploads/2024/11/Earning-Presentation-Q3-2024-Final.pdf": "Q3/9M-2024",
+            "https://leejam.com.sa/wp-content/uploads/2023/11/EP-2023-Q3.pdf": "Q3/9M-2023",
+            "https://leejam.com.sa/wp-content/uploads/2023/10/2023-Q2.pdf": "Q2/H1-2023",
+            "https://leejam.com.sa/wp-content/uploads/2024/07/Earning-Presentation-Q2-2024.pdf": "Q2/H1-2024",
+            "https://leejam.com.sa/wp-content/uploads/2025/08/Leejam-FS-Q2-2025-Eng.pdf": "Q2/H1-2025",
+            "https://leejam.com.sa/wp-content/uploads/2026/08/Signed-Leejam-Q2-English-FS-2026.pdf": "Q2/H1-2026",
+            "https://leejam.com.sa/wp-content/uploads/2023/05/Q4-FY-2019-Earning-Presentation.pdf": "Q4/FY-2019",
+            "https://leejam.com.sa/wp-content/uploads/2025/03/LEEJAM-Annual-Report-2024-ENGLISH-162pp-FINAL-resupply.pdf": "Q4/FY-2024",
+            "https://leejam.com.sa/wp-content/uploads/2024/05/LEEJAM-Annual-Report-2023.pdf": "Q4/FY-2023",
+        }
+        for url, expected in cases.items():
+            assert leejam_filename_period(url) == expected, url
+
+        # An upload-date-only folder (no quarter/annual marker anywhere in
+        # the filename itself) correctly stays unresolved by filename alone
+        # - it must not guess from the "/2026/05/" path.
+        assert (
+            leejam_filename_period(
+                "https://leejam.com.sa/wp-content/uploads/2026/05/"
+                "LEEJAM-2025-English-156pp-27-March-compressed.pdf"
+            )
+            is None
+        )
+
+    def test_leejam_filename_period_ignores_the_upload_date_folder(self):
+        # The upload folder is "2023/09" (September); if this were routed
+        # through the general PERIOD_END_RE date-triplet check it would read
+        # as "2023-09-20" (month 9 = Q3/9M) and silently overwrite the
+        # filename's real "Q1 2020". leejam_filename_period() must only ever
+        # look at the filename itself, never the path around it.
+        assert (
+            leejam_filename_period(
+                "https://leejam.com.sa/wp-content/uploads/2023/09/20Q1.pdf"
+            )
+            == "Q1-2020"
+        )
+
+    def test_leejam_prefers_the_year_next_to_the_quarter_over_publish_year(self):
+        # Reproduces "Q4/FY-2026 -> Earnings-Presentation-Q4-2025-Final.pdf":
+        # the page shows both the publish date (February 2026) and the
+        # content period (Q4 2025) near each other; taking "the first 20xx
+        # year anywhere in the text" picked the publish year.
+        assert (
+            leejam_period(
+                "Earnings Presentation",
+                "Published February 2026 - Q4 2025 Earnings Presentation Final",
+            )
+            == "Q4/FY-2025"
+        )
+
+    def test_leejam_prefers_the_year_next_to_annual_over_publish_year(self):
+        # Reproduces "Q4/FY-2025 -> LEEJAM-Annual-Report-2024-....pdf": the
+        # 2024 annual report was published in March 2025, and "the first
+        # 20xx year anywhere" again preferred the later publish year.
+        assert (
+            leejam_period("Annual Report 2024", "Uploaded on 13 March 2025")
+            == "Q4/FY-2024"
         )
 
 

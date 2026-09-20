@@ -14,6 +14,7 @@ happens before any acceptance rule, so plain substring matching never applies.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date
 
@@ -21,6 +22,8 @@ from .. import http
 from ..models import CandidateEvent, EventType, NormalizedEvent
 from ..normalization import canonical_url, parse_date, slug_title, squash
 from .base import CompanyMonitor, HTMLSourceMixin, ParserFailure, candidate
+
+logger = logging.getLogger(__name__)
 
 SOURCE_HTML = "tgg_results_reports_html"
 SOURCE_PRESS = "tgg_press_releases_html"
@@ -46,6 +49,76 @@ IGNORE_RE = re.compile(
 )
 
 YEAR_RE = re.compile(r"\b(20\d{2})\b")
+
+# Confirmed via a live inspect-validate DEBUG dump: every real link's own
+# visible text and its DOM context are both just "Download PDF (461.22 kb)"
+# or "View presentation (2.35 mb)" - none of the phrases classify_tgg_title
+# looks for ("Full Year Results", "Interim Results", ...) are anywhere in
+# the page's text at all. They are, however, encoded in the file's own name
+# ("rns-hy26-final.pdf", "rns-fy25-final.pdf",
+# "pre-close-trading-statement-jul-26-final.pdf",
+# "full-year-results-mar-2026-presentation.pdf"), which is what
+# tgg_period_from_filename() below reads instead.
+_FILENAME_RNS_HY_RE = re.compile(r"\brns-hy(\d{2})\b")
+_FILENAME_RNS_FY_RE = re.compile(r"\brns-fy(\d{2})\b")
+_FILENAME_HALF_YEAR_RE = re.compile(r"\bhalf-year-results\b")
+_FILENAME_FULL_YEAR_RE = re.compile(r"\bfull-year-results\b")
+_FILENAME_PRE_CLOSE_RE = re.compile(
+    r"\bpre-close-trading-statement-([a-z]{3})-(\d{2})\b"
+)
+# Real, but not financial-results, PDFs seen on the same page (a gender pay
+# gap report, a "Gen Z fitness pulse" survey, the Annual Report/Accounts
+# document, a site-visit deck) - excluded so filename matching never turns
+# every PDF on the page into a candidate.
+_FILENAME_EXCLUDE_RE = re.compile(
+    r"\bannual-report\b|\bsite-visit\b|\bgen-z\b|\bpay-gap\b|\bsurvey-report\b|"
+    r"\bfitness-pulse\b"
+)
+_MONTH_ABBR = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+
+def tgg_period_from_filename(url: str | None) -> tuple[str, str] | None:
+    """(event_type, reporting_period), read from the document's own filename."""
+    if not url:
+        return None
+    filename = slug_title(url.rsplit("/", 1)[-1])
+    if _FILENAME_EXCLUDE_RE.search(filename):
+        return None
+
+    match = _FILENAME_RNS_HY_RE.search(filename)
+    if match:
+        return EventType.INTERIM_RESULTS, f"H1-{2000 + int(match.group(1))}"
+    match = _FILENAME_RNS_FY_RE.search(filename)
+    if match:
+        return EventType.FULL_YEAR_RESULTS, f"FY-{2000 + int(match.group(1))}"
+
+    match = _FILENAME_PRE_CLOSE_RE.search(filename)
+    if match:
+        month = _MONTH_ABBR.get(match.group(1))
+        year = 2000 + int(match.group(2))
+        if month:
+            if month <= 4:
+                return EventType.PRE_CLOSE_TRADING_UPDATE, f"FY_PRE_CLOSE-{year - 1}"
+            return EventType.PRE_CLOSE_TRADING_UPDATE, f"H1_PRE_CLOSE-{year}"
+
+    year_match = YEAR_RE.search(filename)
+    if _FILENAME_HALF_YEAR_RE.search(filename) and year_match:
+        return EventType.INTERIM_RESULTS, f"H1-{year_match.group(1)}"
+    if _FILENAME_FULL_YEAR_RE.search(filename) and year_match:
+        year = int(year_match.group(1))
+        # "full-year-results-mar-2026-presentation" reports FY2025 (results
+        # published in March report the prior fiscal year), matching
+        # tgg_period()'s own March-publication rule below.
+        month_match = re.search(
+            r"-(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)-", filename
+        )
+        if month_match and _MONTH_ABBR[month_match.group(1)] <= 4:
+            year -= 1
+        return EventType.FULL_YEAR_RESULTS, f"FY-{year}"
+    return None
 
 
 class TheGymGroupMonitor(HTMLSourceMixin, CompanyMonitor):
@@ -102,11 +175,28 @@ class TheGymGroupMonitor(HTMLSourceMixin, CompanyMonitor):
 
     # ------------------------------------------------------------------
     def classify(self, cand: CandidateEvent) -> str | None:
-        return classify_tgg_title(cand.title)
+        # Filename first (see tgg_period_from_filename()'s docstring above):
+        # confirmed via a live run to be the only signal actually present
+        # for real documents on this page.
+        by_filename = tgg_period_from_filename(cand.document_url or cand.url)
+        if by_filename:
+            return by_filename[0]
+        # parse_results_page() captures the surrounding block as `context`
+        # (used by normalize()/tgg_period() below to find the publication
+        # date) precisely because the anchor's own text is often generic
+        # ("Download", "PDF", a bare date) while the qualifying phrase
+        # ("Full Year Results", "Interim Results", ...) sits in a nearby
+        # heading. classify() was still title-only, so those candidates
+        # were extracted (82 of them) but never matched here (0 relevant).
+        return classify_tgg_title(f"{cand.title} {cand.raw.get('context', '')}")
 
     def normalize(self, cand: CandidateEvent, event_type: str) -> NormalizedEvent | None:
         published = cand.publication_date or parse_date(cand.raw.get("context", ""))
-        period = tgg_period(event_type, cand.title, published)
+        by_filename = tgg_period_from_filename(cand.document_url or cand.url)
+        if by_filename and by_filename[0] == event_type:
+            period = by_filename[1]
+        else:
+            period = tgg_period(event_type, cand.title, published)
         if not period:
             return None
         return NormalizedEvent(
