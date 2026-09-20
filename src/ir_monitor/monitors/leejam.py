@@ -230,6 +230,11 @@ class LeejamMonitor(
                 or leejam_filename_period(text)
             )
             if not period:
+                if url.lower().endswith(".pdf"):  # TEMP DEBUG - remove before merging
+                    logger.info(
+                        "DEBUG company=%s unresolved text=%r block=%r url=%s",
+                        self.key, text, block, url,
+                    )
                 continue
             low = slug_title(f"{text} {url}")
             if not (url.lower().endswith(".pdf") or "download" in low or "report" in low):

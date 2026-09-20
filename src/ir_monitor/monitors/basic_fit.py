@@ -158,11 +158,17 @@ class BasicFitMonitor(
             block = _block_text(anchor)
             title = text if len(text) > 8 else block[:160]
             low = slug_title(f"{text} {block}")
-            if not (
+            matched = (
                 TRADING_UPDATE_RE.search(low)
                 or HALF_YEAR_RE.search(low)
                 or FULL_YEAR_RE.search(low)
-            ):
+            )
+            if url.lower().endswith(".pdf"):  # TEMP DEBUG - remove before merging
+                logger.info(
+                    "DEBUG company=%s matched=%s text=%r block=%r url=%s",
+                    self.key, bool(matched), text, block, url,
+                )
+            if not matched:
                 continue
             key = f"{slug_title(title)}|{url}"
             if key in seen:
