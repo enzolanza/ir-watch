@@ -163,7 +163,7 @@ class BasicFitMonitor(
                 or HALF_YEAR_RE.search(low)
                 or FULL_YEAR_RE.search(low)
             )
-            if url.lower().endswith(".pdf"):  # TEMP DEBUG - remove before merging
+            if ".pdf" in url.lower():  # TEMP DEBUG - remove before merging
                 logger.info(
                     "DEBUG company=%s matched=%s text=%r block=%r url=%s",
                     self.key, bool(matched), text, block, url,
@@ -180,7 +180,12 @@ class BasicFitMonitor(
                     source,
                     title,
                     url=url,
-                    document_url=url if url.lower().endswith(".pdf") else None,
+                    # Real links carry a query string after the extension
+                    # (e.g. "....pdf?a=6zowfKguC7uXelEv9o4ssJ"), so this
+                    # never matched .endswith(".pdf") in production -
+                    # harmless in practice (normalize() below already falls
+                    # back to cand.url), but worth being correct about.
+                    document_url=url if ".pdf" in url.lower() else None,
                     publication_date=parse_date(block[:120]),
                     context=block,
                     link_text=text,

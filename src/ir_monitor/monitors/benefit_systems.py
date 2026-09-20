@@ -16,6 +16,7 @@ of corporate and regulatory current reports.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date
 
@@ -30,9 +31,17 @@ from ..normalization import (
 )
 from .base import CompanyMonitor, HTMLSourceMixin, ParserFailure, candidate
 
+logger = logging.getLogger(__name__)
+
 SOURCE_HTML = "benefit_systems_reports_html"
+SOURCE_HTML_PL = "benefit_systems_reports_html_pl"
 
 DEFAULT_URL = "https://corp.benefitsystems.pl/en/for-investors/reports/"
+# Unconfirmed lead: the site's own Polish-language investor section (same
+# official domain, corp.benefitsystems.pl). Found via web search while
+# DEFAULT_URL was 403ing; not adopted as a solution until it is confirmed
+# to actually produce items live (see fetch_candidates()).
+DEFAULT_PL_URL = "https://corp.benefitsystems.pl/dla-inwestora/"
 
 CONSOLIDATED_RE = re.compile(r"\bconsolidated\b")
 STANDALONE_RE = re.compile(r"\b(standalone|stand-alone|separate)\b")
@@ -74,6 +83,29 @@ class BenefitSystemsMonitor(HTMLSourceMixin, CompanyMonitor):
         url = self.config.primary_url or DEFAULT_URL
         try:
             html = http.get_text(url)
+            items = self.parse_reports_page(html, url)
+            if items:
+                self.source_used = SOURCE_HTML
+                return items
+        except Exception as exc:  # noqa: BLE001
+            logger.info("company=%s action=english_path_failed error=%s", self.key, exc)
+
+        # Diagnostic-only fallback: an unconfirmed lead (the site's own
+        # Polish-language investor section, a different path on the same
+        # official domain) found via web search while the English path was
+        # 403ing. Not treated as a solution until it actually produces
+        # items against the live site.
+        pl_url = self.config.option("pl_reports_url", DEFAULT_PL_URL)
+        try:
+            html = http.get_text(pl_url)
+            items = self.parse_reports_page(html, pl_url)
+            logger.info(  # TEMP DEBUG - remove once this source is confirmed live
+                "DEBUG company=%s source=pl_path items=%d sample_len=%d",
+                self.key, len(items), len(html),
+            )
+            if items:
+                self.source_used = SOURCE_HTML_PL
+                return items
         except Exception as exc:  # noqa: BLE001
             # A persistent 403 here (as opposed to a transient network error,
             # which http.request() already retries) usually means the site is
@@ -88,11 +120,8 @@ class BenefitSystemsMonitor(HTMLSourceMixin, CompanyMonitor):
                 "requests; see the GPW ESPI/EBI lead in config/companies.yaml for a "
                 "possible official alternate source"
             ) from exc
-        items = self.parse_reports_page(html, url)
-        if not items:
-            raise ParserFailure("benefit_systems: reports listing produced no items")
-        self.source_used = SOURCE_HTML
-        return items
+
+        raise ParserFailure("benefit_systems: reports listing produced no items")
 
     def parse_reports_page(self, html: str, base_url: str) -> list[CandidateEvent]:
         soup = self.soup_from(html)
