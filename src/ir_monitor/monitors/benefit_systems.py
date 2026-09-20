@@ -34,14 +34,8 @@ from .base import CompanyMonitor, HTMLSourceMixin, ParserFailure, candidate
 logger = logging.getLogger(__name__)
 
 SOURCE_HTML = "benefit_systems_reports_html"
-SOURCE_HTML_PL = "benefit_systems_reports_html_pl"
 
 DEFAULT_URL = "https://corp.benefitsystems.pl/en/for-investors/reports/"
-# Unconfirmed lead: the site's own Polish-language investor section (same
-# official domain, corp.benefitsystems.pl). Found via web search while
-# DEFAULT_URL was 403ing; not adopted as a solution until it is confirmed
-# to actually produce items live (see fetch_candidates()).
-DEFAULT_PL_URL = "https://corp.benefitsystems.pl/dla-inwestora/"
 
 CONSOLIDATED_RE = re.compile(r"\bconsolidated\b")
 STANDALONE_RE = re.compile(r"\b(standalone|stand-alone|separate)\b")
@@ -88,37 +82,25 @@ class BenefitSystemsMonitor(HTMLSourceMixin, CompanyMonitor):
                 self.source_used = SOURCE_HTML
                 return items
         except Exception as exc:  # noqa: BLE001
-            logger.info("company=%s action=english_path_failed error=%s", self.key, exc)
-
-        # Diagnostic-only fallback: an unconfirmed lead (the site's own
-        # Polish-language investor section, a different path on the same
-        # official domain) found via web search while the English path was
-        # 403ing. Not treated as a solution until it actually produces
-        # items against the live site.
-        pl_url = self.config.option("pl_reports_url", DEFAULT_PL_URL)
-        try:
-            html = http.get_text(pl_url)
-            items = self.parse_reports_page(html, pl_url)
-            logger.info(  # TEMP DEBUG - remove once this source is confirmed live
-                "DEBUG company=%s source=pl_path items=%d sample_len=%d",
-                self.key, len(items), len(html),
-            )
-            if items:
-                self.source_used = SOURCE_HTML_PL
-                return items
-        except Exception as exc:  # noqa: BLE001
             # A persistent 403 here (as opposed to a transient network error,
             # which http.request() already retries) usually means the site is
             # blocking the request at the WAF/bot-detection layer rather than
-            # anything this parser can fix. Surface it as a clear, distinct
-            # ParserFailure instead of an unhandled traceback; no attempt is
-            # made to spoof headers or otherwise get around the block.
+            # anything this parser can fix. Confirmed live on 2026-09-20 that
+            # this is not just this one path: the site's own Polish-language
+            # investor section (corp.benefitsystems.pl/dla-inwestora/, a
+            # different path on the *same* domain) 403s identically, so the
+            # whole domain is blocking this monitor, not just this URL - no
+            # same-domain alternate path is worth trying next. Surfaced as a
+            # clear, distinct ParserFailure instead of an unhandled
+            # traceback; no attempt is made to spoof headers or otherwise
+            # get around the block.
             raise ParserFailure(
                 f"benefit_systems: could not fetch reports page ({type(exc).__name__}: "
-                f"{exc}) - confirmed live as of 2026-09-20, not a local/network-only "
-                "issue. Verify manually whether the site is blocking automated "
+                f"{exc}) - confirmed live as of 2026-09-20, and confirmed not "
+                "path-specific (the Polish-language path on the same domain 403s "
+                "too). Verify manually whether the site is blocking automated "
                 "requests; see the GPW ESPI/EBI lead in config/companies.yaml for a "
-                "possible official alternate source"
+                "possible official alternate source on a different domain"
             ) from exc
 
         raise ParserFailure("benefit_systems: reports listing produced no items")

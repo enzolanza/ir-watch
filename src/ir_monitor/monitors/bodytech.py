@@ -46,17 +46,8 @@ logger = logging.getLogger(__name__)
 SOURCE_SITE = "bodytech_politicas_html"
 SOURCE_SITE_RENDERED = "bodytech_politicas_rendered"
 SOURCE_SPED = "sped_central_de_balancos"
-SOURCE_MEDIA = "bodytech_media_domain_html"
 
 DEFAULT_URL = "https://www.bodytech.com.br/pt/politicas/?topico=2"
-# A separate, unconfirmed lead found via web search while the politicas
-# page's real interaction was still unresolved (see fetch_site()'s
-# UNRESOLVED comment): several real balance-sheet PDFs
-# (ABodytech_Balanco_2022.pdf, ABodytech_Balanco_2023.pdf, ...) are hosted
-# directly on this separate media domain. No index/listing page for it was
-# found by search, so this is tried as a genuine extra source (not a
-# certainty) - kept only if it actually produces candidates live.
-MEDIA_DOMAIN_URL = "https://medias.bodytech.company/balances/"
 CNPJ = "07.737.623/0001-90"
 CNPJ_DIGITS = "07737623000190"
 
@@ -96,14 +87,6 @@ class BodytechMonitor(
                 used.append(self.source_used or SOURCE_SITE)
         except Exception as exc:  # noqa: BLE001 - SPED may still answer
             logger.info("company=%s source=site error=%s", self.key, exc)
-
-        try:
-            media_items = self.fetch_media_domain()
-            if media_items:
-                items.extend(media_items)
-                used.append(SOURCE_MEDIA)
-        except Exception as exc:  # noqa: BLE001
-            logger.info("company=%s source=media error=%s", self.key, exc)
 
         try:
             sped_items = self.fetch_sped()
@@ -160,16 +143,6 @@ class BodytechMonitor(
         html = self.render_html(base_url, click_selector="a[href*='topico=2']")
         items = self.parse_site_html(html, url, SOURCE_SITE_RENDERED)
         self.source_used = SOURCE_SITE_RENDERED
-        return items
-
-    def fetch_media_domain(self) -> list[CandidateEvent]:
-        url = self.config.option("media_domain_url", MEDIA_DOMAIN_URL)
-        html = http.get_text(url)
-        items = self.parse_site_html(html, url, SOURCE_MEDIA)
-        logger.info(  # TEMP DEBUG - remove once this source is confirmed live
-            "DEBUG company=%s source=media items=%d sample_len=%d",
-            self.key, len(items), len(html),
-        )
         return items
 
     def fetch_sped(self) -> list[CandidateEvent]:

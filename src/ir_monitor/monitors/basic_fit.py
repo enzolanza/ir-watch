@@ -158,17 +158,11 @@ class BasicFitMonitor(
             block = _block_text(anchor)
             title = text if len(text) > 8 else block[:160]
             low = slug_title(f"{text} {block}")
-            matched = (
+            if not (
                 TRADING_UPDATE_RE.search(low)
                 or HALF_YEAR_RE.search(low)
                 or FULL_YEAR_RE.search(low)
-            )
-            if ".pdf" in url.lower():  # TEMP DEBUG - remove before merging
-                logger.info(
-                    "DEBUG company=%s matched=%s text=%r block=%r url=%s",
-                    self.key, bool(matched), text, block, url,
-                )
-            if not matched:
+            ):
                 continue
             key = f"{slug_title(title)}|{url}"
             if key in seen:
@@ -325,16 +319,21 @@ def _first_url(row: dict[str, Any], names: tuple[str, ...]) -> str | None:
 
 
 def _block_text(anchor, max_levels: int = 3) -> str:
-    # On the real results table, each row's own text (date + description +
-    # "View report (pdf)" x N + "Listen") is already ~70 chars - climbing
-    # until 80 chars were accumulated (the old threshold) reliably climbed
-    # one level too far, into a container holding *several* rows, mixing in
-    # other rows' "Capital Markets Day"/"Presentation"/"Webcast" labels and
-    # making every link in the table look excluded (see IGNORE_RE in
-    # classify_basic_fit_title). This produced the real "10 candidates, 0
-    # relevant" incident. A much lower threshold stops at the first level
-    # that has *any* real content instead of the first level that has a lot
-    # of it, which is what a single table row/list item naturally is.
+    # Confirmed via two live DEBUG dumps against the real results table:
+    # the anchor's immediate parent is an "actions" cell shared by the
+    # Report/Presentation/Listen links alone (~44 chars: "View report (pdf)
+    # View report (pdf) Listen" - no date, no description), and the row's
+    # *own* full text, including the date and description that actually
+    # carry the classifying phrase ("Half Year 2026", "Q1 2026 Trading
+    # Update"), lives one level further up (~70 chars). A too-low threshold
+    # (20, tried first) stopped at the actions cell before ever reaching
+    # that text - 0 relevant despite 10 candidates. A too-high one (80,
+    # the original) climbed one level too far *past* the row into a
+    # container holding several rows, mixing in other rows'
+    # "Capital Markets Day"/"Presentation"/"Webcast" labels and making
+    # IGNORE_RE reject everything instead. 50 sits between the two real
+    # levels seen live (44 and ~70), so it skips the actions cell but
+    # stops at the row.
     node = anchor
     best = ""
     for _ in range(max_levels):
@@ -344,6 +343,6 @@ def _block_text(anchor, max_levels: int = 3) -> str:
         text = squash(node.get_text(" ", strip=True))
         if len(text) > len(best):
             best = text
-        if len(best) > 20:
+        if len(best) > 50:
             break
     return best[:500]

@@ -25,16 +25,17 @@ companies:
     # As of 2026-09-20, ri.bluefit.com.br's own TLS certificate is expired
     # (confirmed via both plain HTTP and Playwright - see the ERR_CERT_DATE
     # handling in monitors/bluefit.py). Certificate verification is
-    # deliberately never disabled to work around this. A lead for an
-    # official alternate source: a real Bluefit document was found during
-    # that investigation at api.mziq.com (MZ's own shared platform domain,
-    # which should have a normally-maintained certificate) under company id
-    # d83ecf03-07f6-4822-8e26-922775bc0a72. This is NOT a confirmed listing
-    # endpoint - only a single document URL turned up by a web search - so
-    # it is documented here rather than guessed into candidate_endpoints
-    # below. Confirm the actual listing endpoint via browser devtools on
-    # https://ri.bluefit.com.br/en/financial-information/results-center/
-    # before adding it.
+    # deliberately never disabled to work around this.
+    #
+    # The api.mziq.com lead (MZ's shared platform domain, under company id
+    # d83ecf03-07f6-4822-8e26-922775bc0a72) was investigated and does NOT
+    # pan out: MZ's file manager has no listing/directory API (its
+    # /mzfilemanager/v2/d/{company-uuid} endpoint returns 401), so document
+    # UUIDs can only be harvested from the IR page's own HTML - which means
+    # still loading ri.bluefit.com.br first, the exact step blocked by the
+    # expired certificate. There is no alternate MZ-hosted source that
+    # sidesteps this. Left disabled pending either the certificate being
+    # renewed or a different (non-MZ) official source being found.
     candidate_endpoints: []
     pdf_fallback: true
 
@@ -60,6 +61,15 @@ companies:
     # open on this page to find the real interaction/URL - see the
     # UNRESOLVED comment in monitors/bodytech.py for what was already ruled
     # out.
+    #
+    # Also tried and ruled out live: medias.bodytech.company/balances/, a
+    # separate domain that web search shows really does host individual
+    # balance-sheet PDFs (ABodytech_Balanco_2022.pdf,
+    # ABodytech_Balanco_2023.pdf, ...), found by search but with no
+    # index/listing page - fetching that URL directly returns an empty
+    # (2xx, 0-byte) response, so there is nothing on it to scrape without
+    # already knowing each year's exact filename, which is exactly the
+    # "no candidate_endpoints invented" rule this project follows.
     candidate_endpoints: []
     # SPED Central de Balancos: interactive, protected search flow. Left empty
     # on purpose - the adapter skips the source with a warning rather than
@@ -119,6 +129,18 @@ companies:
     # this monitor's requests specifically (WAF/bot-detection or an IP-range
     # block), which is out of scope to try to get around. Verify by loading
     # primary_url in an ordinary browser before changing any URL here.
+    #
+    # A concrete, not-yet-confirmed lead found via web search: PureGym's
+    # site runs on the Q4 Inc investor-relations platform (its documents
+    # are served from a separate CDN domain, s28.q4cdn.com/583314398/...,
+    # matching this adapter's existing PERIOD_PATH_RE pattern already) and
+    # Q4's platforms typically expose the reports table through their own
+    # documented API, https://<site>/feed/FinancialReport.svc/GetFinancialReportList
+    # (see studioapi.q4inc.com). That would very likely be on
+    # corporate.puregym.com itself, though, so it may be blocked the same
+    # way - and it needs an apiKey value that is not published anywhere
+    # public; only visible via the site's own devtools network tab, which
+    # this session cannot open.
     primary_url: https://corporate.puregym.com/investors/results-reports-and-presentations/default.aspx
     overview_url: https://corporate.puregym.com/investors/default.aspx
     candidate_endpoints: []
@@ -136,15 +158,27 @@ companies:
     enabled: true
     primary_url: https://corp.benefitsystems.pl/en/for-investors/reports/
     # As of 2026-09-20, corp.benefitsystems.pl returns HTTP 403 to this
-    # monitor's requests (confirmed live, not just locally). No attempt is
-    # made to get around it (no header/User-Agent spoofing) - it may be a
-    # WAF/bot-detection block. A lead for an official alternate source:
-    # Benefit Systems (GPW:BFT) current/periodic reports are also filed
-    # through the Warsaw Stock Exchange's own ESPI/EBI system at
-    # https://www.gpw.pl/espi-ebi-reports (searchable by issuer). This is a
-    # regulator-hosted mirror, not confirmed to have a stable per-issuer
-    # query URL or a structured (non-HTML-scrape) endpoint - needs manual
-    # confirmation before it can replace or supplement primary_url above.
+    # monitor's requests (confirmed live, not just locally). This is
+    # domain-wide, not specific to this one path: the site's own
+    # Polish-language investor section (corp.benefitsystems.pl/dla-inwestora/)
+    # was also tried live and 403s identically - no same-domain path is
+    # worth trying next. No attempt is made to get around it (no
+    # header/User-Agent spoofing) - it may be a WAF/bot-detection block.
+    #
+    # Two genuinely different-domain leads, neither confirmed to actually
+    # work (not wired in):
+    #   - Warsaw Stock Exchange's own ESPI/EBI system,
+    #     https://www.gpw.pl/espi-ebi-reports (searchable by issuer) - not
+    #     confirmed to have a stable per-issuer query URL or a structured
+    #     (non-HTML-scrape) endpoint.
+    #   - PAP (Poland's official press agency, which distributes ESPI/EBI
+    #     filings on the regulator's behalf), e.g.
+    #     https://biznes.pap.pl/wiadomosci/firmy/benefit-systems-sa-raport-okresowy-roczny-skonsolidowany-srr-3
+    #     - real per-report pages exist and were found by search, but no
+    #     stable per-issuer listing URL/feed was found, and its own
+    #     accessibility to this monitor is untested.
+    # Either needs a human to confirm reachability and find a real listing
+    # URL/feed before either can replace or supplement primary_url above.
 
   leejam:
     name: Leejam
