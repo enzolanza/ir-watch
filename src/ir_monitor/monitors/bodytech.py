@@ -129,7 +129,14 @@ class BodytechMonitor(
         # string is not read on load, only clicking the matching in-page nav
         # link switches the visible section. No wait_for selector (the old
         # "a[href*='.pdf']" one just produced a 30s timeout instead).
-        html = self.render_html(url, click_selector="a[href*='topico=2']")
+        #
+        # A second DEBUG run showed clicking that same link while already
+        # sitting on that exact URL (goto(url) then click a link *to* url)
+        # left the page byte-for-byte unchanged - a real click needs to be a
+        # state *transition*, so navigate to the topico-less base page first
+        # and click from there instead.
+        base_url = url.split("?", 1)[0]
+        html = self.render_html(base_url, click_selector="a[href*='topico=2']")
         items = self.parse_site_html(html, url, SOURCE_SITE_RENDERED)
         self.source_used = SOURCE_SITE_RENDERED
         return items

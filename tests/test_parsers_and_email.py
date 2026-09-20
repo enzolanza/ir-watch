@@ -99,12 +99,58 @@ class TestTheGymGroupPage:
         assert "FY-2024" in periods
         assert "H1-2025" in periods
 
-        # And when the anchor's own text is fully generic ("Download") and
-        # the phrase only exists in a nearby heading, classify() must also
-        # pick it up from `context` - the same signal normalize()/tgg_period
-        # already read for the publication date. This is what still produced
-        # 82 candidates / 0 relevant after the anchoring fix alone.
-        assert "FY-2023" in periods
+    def test_real_production_filenames_classify_correctly(self):
+        # Built directly from a live inspect-validate DEBUG dump: every real
+        # link's title AND its DOM context are both just "Download PDF
+        # (461.22 kb)"/"View presentation (2.35 mb)" - none of the phrases
+        # classify_tgg_title looks for appear anywhere in the page text,
+        # only in the filename. This is what actually produced the real
+        # 82 candidates / 0 relevant incident (the context-reading fix
+        # above was necessary but not sufficient).
+        from ir_monitor.monitors.base import candidate as make_candidate
+
+        real_files = {
+            "rns-hy26-final.pdf": "H1-2026",
+            "tgg-2026-half-year-results.pdf": "H1-2026",
+            "the-gym-group-gen-z-fitness-pulse-report-2026-final.pdf": None,
+            "pre-close-trading-statement-jul-26-final.pdf": "H1_PRE_CLOSE-2026",
+            "tgg-site-visit-june-2026.pdf": None,
+            "tgg_annual-report-2025_web-ready-spreads.pdf": None,
+            "rns-fy25-final_.pdf": "FY-2025",
+            "full-year-results-mar-2026-presentation.pdf": "FY-2025",
+            "pre-close-trading-statement-jan-26-final.pdf": "FY_PRE_CLOSE-2025",
+            "rns-hy25-final.pdf": "H1-2025",
+            "tgg-half-year-results-presentation-sep-2025.pdf": "H1-2025",
+            "tgg-pr-gen-z-survey-report-2025.pdf": None,
+            "20260223-tgg-gender-pay-gap-report-2025.pdf": None,
+        }
+        monitor = TheGymGroupMonitor(cfg("the_gym_group"))
+        events = []
+        for filename, expected_period in real_files.items():
+            url = f"https://www.tggplc.com/media/xxxx/{filename}"
+            cand = make_candidate(
+                "the_gym_group", "tgg_results_reports_html",
+                "Download PDF (461.22 kb)", url=url, document_url=url,
+                context="Download PDF (461.22 kb)",
+            )
+            event_type = monitor.classify(cand)
+            if expected_period is None:
+                assert event_type is None or monitor.normalize(cand, event_type) is None, filename
+                continue
+            assert event_type is not None, filename
+            event = monitor.normalize(cand, event_type)
+            assert event is not None, filename
+            assert event.reporting_period == expected_period, filename
+            events.append(event)
+
+        # Report + presentation pairs for the same period merge into one
+        # event via merge_events(), same as every other adapter.
+        from ir_monitor.monitors.base import merge_events
+
+        merged = merge_events(events)
+        assert {e.reporting_period for e in merged} == {
+            "H1-2026", "H1_PRE_CLOSE-2026", "FY-2025", "FY_PRE_CLOSE-2025", "H1-2025",
+        }
 
     def test_classify_reads_context_not_just_the_bare_link_text(self):
         monitor = TheGymGroupMonitor(cfg("the_gym_group"))
