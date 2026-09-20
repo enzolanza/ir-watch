@@ -180,7 +180,17 @@ class BasicFitMonitor(
 
     # ------------------------------------------------------------------
     def classify(self, cand: CandidateEvent) -> str | None:
-        return classify_basic_fit_title(f"{cand.title} {cand.raw.get('link_text', '')}")
+        # The fetch-time filter in parse_results_html() already requires a
+        # match against title+block before a candidate is even created (see
+        # TRADING_UPDATE_RE/HALF_YEAR_RE/FULL_YEAR_RE there), and normalize()
+        # below already looks at the same context - classify() was the one
+        # place still checking title+link_text only, so a link whose own
+        # visible text is generic ("Download", a bare date) while the
+        # qualifying phrase lives in the surrounding block was let through
+        # as a candidate but then always classified as irrelevant.
+        return classify_basic_fit_title(
+            f"{cand.title} {cand.raw.get('link_text', '')} {cand.raw.get('context', '')}"
+        )
 
     def normalize(self, cand: CandidateEvent, event_type: str) -> NormalizedEvent | None:
         period = basic_fit_period(

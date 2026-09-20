@@ -83,8 +83,10 @@ class BenefitSystemsMonitor(HTMLSourceMixin, CompanyMonitor):
             # made to spoof headers or otherwise get around the block.
             raise ParserFailure(
                 f"benefit_systems: could not fetch reports page ({type(exc).__name__}: "
-                f"{exc}) - if this persists, verify manually whether the site is "
-                "blocking automated requests"
+                f"{exc}) - confirmed live as of 2026-09-20, not a local/network-only "
+                "issue. Verify manually whether the site is blocking automated "
+                "requests; see the GPW ESPI/EBI lead in config/companies.yaml for a "
+                "possible official alternate source"
             ) from exc
         items = self.parse_reports_page(html, url)
         if not items:

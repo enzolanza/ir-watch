@@ -121,7 +121,15 @@ class BodytechMonitor(
         except Exception as exc:  # noqa: BLE001
             logger.info("company=%s action=static_failed error=%s", self.key, exc)
 
-        html = self.render_html(url, wait_for="a[href*='.pdf']")
+        # No wait_for selector: the static attempt above already found the
+        # page's text indexed by search engines even before this fallback
+        # runs, which means the content is not purely client-rendered - the
+        # real blocker was very likely the strict "a[href*='.pdf']" selector
+        # (document links may not literally end in .pdf; see the broadened
+        # match in parse_site_html below), not missing JavaScript rendering.
+        # Requiring that exact selector only produced a 30s timeout instead
+        # of letting networkidle alone decide the page is settled.
+        html = self.render_html(url)
         items = self.parse_site_html(html, url, SOURCE_SITE_RENDERED)
         self.source_used = SOURCE_SITE_RENDERED
         return items
@@ -177,12 +185,34 @@ class BodytechMonitor(
         out: list[CandidateEvent] = []
         seen: set[str] = set()
         for text, url, anchor in self.iter_links(soup, base_url):
-            if not url.lower().endswith(".pdf"):
+            low_url = url.lower()
+            # Not every document management system serves a link that
+            # literally ends in ".pdf" (a query string, a redirect/viewer
+            # path, or a download endpoint are all common); requiring the
+            # bare suffix was producing zero candidates even when the page
+            # itself was reachable and its "Demonstracoes Financeiras"
+            # section text was present. Still gated on the surrounding
+            # section actually being that financial-statements section, so
+            # this does not turn every link on the page into a candidate.
+            looks_like_document = (
+                low_url.endswith(".pdf")
+                or ".pdf?" in low_url
+                or "/download" in low_url
+                or "arquivo" in low_url
+            )
+            if not looks_like_document:
                 continue
             if url in seen:
                 continue
             seen.add(url)
             section = _section_for(anchor)
+            if not FINANCIAL_SECTION_RE.search(slug_title(section)) and not low_url.endswith(
+                ".pdf"
+            ):
+                # Non-.pdf links are only trustworthy when they are clearly
+                # inside the financial-statements section; a bare ".pdf"
+                # link is kept regardless, matching the previous behaviour.
+                continue
             out.append(
                 candidate(
                     self.key,
@@ -269,7 +299,13 @@ def bodytech_fiscal_year(text: str) -> int | None:
     return max(years) if years else None
 
 
-def _section_for(anchor, max_levels: int = 6) -> str:
+def _section_for(anchor, max_levels: int = 3) -> str:
+    # Kept shallow on purpose: climbing far enough to reach a page-wide
+    # container (e.g. <body>) risks folding in a *different* section's text
+    # (this is what let a non-.pdf link outside the financial-statements
+    # section pass the FINANCIAL_SECTION_RE check below when this used to
+    # default to 6 levels) - the same class of cross-section contamination
+    # found in Leejam's period detection.
     node = anchor
     best = ""
     for _ in range(max_levels):

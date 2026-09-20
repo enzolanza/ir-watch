@@ -102,7 +102,14 @@ class TheGymGroupMonitor(HTMLSourceMixin, CompanyMonitor):
 
     # ------------------------------------------------------------------
     def classify(self, cand: CandidateEvent) -> str | None:
-        return classify_tgg_title(cand.title)
+        # parse_results_page() captures the surrounding block as `context`
+        # (used by normalize()/tgg_period() below to find the publication
+        # date) precisely because the anchor's own text is often generic
+        # ("Download", "PDF", a bare date) while the qualifying phrase
+        # ("Full Year Results", "Interim Results", ...) sits in a nearby
+        # heading. classify() was still title-only, so those candidates
+        # were extracted (82 of them) but never matched here (0 relevant).
+        return classify_tgg_title(f"{cand.title} {cand.raw.get('context', '')}")
 
     def normalize(self, cand: CandidateEvent, event_type: str) -> NormalizedEvent | None:
         published = cand.publication_date or parse_date(cand.raw.get("context", ""))

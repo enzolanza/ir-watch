@@ -105,7 +105,35 @@ class BluefitMonitor(
         except Exception as exc:  # noqa: BLE001
             logger.info("company=%s action=static_failed error=%s", self.key, exc)
 
-        html = self.render_html(url, wait_for="a[href*='mzfilemanager']")
+        try:
+            html = self.render_html(url, wait_for="a[href*='mzfilemanager']")
+        except Exception as exc:  # noqa: BLE001
+            if "ERR_CERT" in str(exc) or "CERTIFICATE" in str(exc).upper():
+                # Confirmed independently by both the plain-HTTP attempt
+                # above and Playwright: ri.bluefit.com.br's own TLS
+                # certificate is invalid/expired. This is external to the
+                # project and outside what a scraper should try to work
+                # around (TLS verification is deliberately never disabled -
+                # see PlaywrightFallbackMixin.render_html and http.py, both
+                # unchanged here). A structured MZ backend endpoint is the
+                # documented way around a broken company domain (see
+                # `candidate_endpoints` above and EndpointProbeMixin), but it
+                # must be a *confirmed* endpoint, not a guess: one real
+                # document was found at api.mziq.com under company id
+                # d83ecf03-07f6-4822-8e26-922775bc0a72 while investigating
+                # this failure, which is a concrete lead - the exact listing
+                # endpoint still needs to be confirmed via browser devtools
+                # before it can be added here.
+                raise ParserFailure(
+                    "bluefit: ri.bluefit.com.br's TLS certificate is invalid "
+                    f"({exc}) - confirmed via both the plain HTTP and the "
+                    "Playwright attempt, so this is an external problem with "
+                    "the site itself, not this parser. Not fixable by "
+                    "disabling certificate verification (kept on). See the "
+                    "api.mziq.com lead in config/companies.yaml for a "
+                    "possible official alternate source once confirmed."
+                ) from exc
+            raise
         items = self.parse_documents_html(html, url, SOURCE_RENDERED)
         if not items:
             raise ParserFailure(

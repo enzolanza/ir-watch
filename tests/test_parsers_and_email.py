@@ -13,7 +13,10 @@ import pytest
 from ir_monitor.config import CompanyConfig
 from ir_monitor.emailer import build_subject, render_html, render_plain_text
 from ir_monitor.models import EventType, NormalizedEvent
+from ir_monitor.monitors.basic_fit import BasicFitMonitor
 from ir_monitor.monitors.benefit_systems import BenefitSystemsMonitor
+from ir_monitor.monitors.bluefit import BluefitMonitor
+from ir_monitor.monitors.bodytech import BodytechMonitor
 from ir_monitor.monitors.planet_fitness import PlanetFitnessMonitor
 from ir_monitor.monitors.puregym import PureGymMonitor
 from ir_monitor.monitors.sats import SATSMonitor
@@ -95,6 +98,23 @@ class TestTheGymGroupPage:
         # loosened from "^phrase" to "\bphrase".
         assert "FY-2024" in periods
         assert "H1-2025" in periods
+
+        # And when the anchor's own text is fully generic ("Download") and
+        # the phrase only exists in a nearby heading, classify() must also
+        # pick it up from `context` - the same signal normalize()/tgg_period
+        # already read for the publication date. This is what still produced
+        # 82 candidates / 0 relevant after the anchoring fix alone.
+        assert "FY-2023" in periods
+
+    def test_classify_reads_context_not_just_the_bare_link_text(self):
+        monitor = TheGymGroupMonitor(cfg("the_gym_group"))
+        candidates = monitor.parse_results_page(
+            fixture("tgg_results.html"), "https://www.tggplc.com/"
+        )
+        download_only = [c for c in candidates if c.title.strip().lower() == "download"]
+        assert download_only, "fixture must contain a generic 'Download' link"
+        cand = download_only[0]
+        assert monitor.classify(cand) == EventType.FULL_YEAR_RESULTS
 
 
 # ==========================================================================
@@ -211,6 +231,148 @@ class TestPureGymDiscovery:
         assert len(candidates) == 1
         assert candidates[0].raw.get("period") == "Q1-2026"
         assert candidates[0].document_url.endswith("PureGym-Q126-Report.pdf")
+
+    def test_domain_wide_404_produces_a_distinct_diagnostic(self, monkeypatch):
+        # Reproduces the actual production incident: primary_url, the
+        # LEGACY_URL, the discovery root, and overview_url all 404 (even
+        # though a search engine still indexes primary_url as live), and
+        # Playwright (enabled) reaches the page fine but finds no matching
+        # report links either. The resulting ParserFailure should say this
+        # looks like a request-level block, not suggest yet another URL.
+        import requests
+
+        from ir_monitor.monitors import puregym as module
+
+        def _get_text(url, **kwargs):
+            raise requests.exceptions.HTTPError(f"404 Client Error: Not Found for url: {url}")
+
+        monkeypatch.setattr(module.http, "get_text", _get_text)
+        monkeypatch.setattr(
+            PureGymMonitor, "render_html", lambda self, url, **kw: "<html></html>"
+        )
+        monitor = PureGymMonitor(cfg("puregym"))
+        with pytest.raises(module.ParserFailure, match="request") as excinfo:
+            monitor.fetch_candidates()
+        assert "404" in str(excinfo.value)
+
+
+# ==========================================================================
+class TestBluefitPage:
+    def test_cert_failure_on_playwright_is_a_distinct_clear_error(self, monkeypatch):
+        # Reproduces the production incident: the site's own TLS certificate
+        # is expired, so both the plain-HTTP attempt AND Playwright fail on
+        # it. This must surface as one specific, clearly-labelled failure
+        # (an external site problem, not a parser bug) rather than the
+        # generic "Central de Resultados returned no documents" message.
+        import requests
+
+        from ir_monitor.monitors import bluefit as module
+
+        def _get_text(url, **kwargs):
+            raise requests.exceptions.SSLError("certificate has expired")
+
+        def _render_html(self, url, **kwargs):
+            raise Exception(  # noqa: BLE001 - mirrors Playwright's own exception type
+                "Page.goto: net::ERR_CERT_DATE_INVALID at " + url
+            )
+
+        monkeypatch.setattr(module.http, "get_text", _get_text)
+        monkeypatch.setattr(BluefitMonitor, "render_html", _render_html)
+        monitor = BluefitMonitor(cfg("bluefit"))
+        with pytest.raises(module.ParserFailure, match="TLS certificate"):
+            monitor.fetch_candidates()
+
+
+# ==========================================================================
+class TestBasicFitPage:
+    def test_classify_reads_context_not_just_the_bare_link_text(self):
+        # Reproduces the production incident: 10 candidates, 0 relevant.
+        # parse_results_html()'s own fetch-time filter already requires the
+        # qualifying phrase in title+block (see TRADING_UPDATE_RE etc. down
+        # there), and normalize()/basic_fit_period() already read `context`
+        # for the period - classify() was the one place still checking only
+        # title+link_text, so a link whose own visible text is a generic
+        # "Download" while the heading ("Q1 2026 Trading Update") sits in
+        # the surrounding block was extracted as a candidate but always
+        # classified as irrelevant.
+        html = """
+        <html><body>
+        <div class="row">
+          <h3>Q1 2026 Trading Update - Basic-Fit reports first quarter trading
+          update for the period ended 31 March 2026, Hoofddorp</h3>
+          <a href="/docs/basic-fit-q1-2026-trading-update.pdf">Download</a>
+        </div>
+        <div class="row">
+          <h3>Full Year Results 2025 - Basic-Fit reports full year results
+          for the twelve months ended 31 December 2025, Hoofddorp</h3>
+          <a href="/docs/basic-fit-fy-2025-results.pdf">Download</a>
+        </div>
+        </body></html>
+        """
+        monitor = BasicFitMonitor(cfg("basic_fit"))
+        candidates = monitor.parse_results_html(
+            html, "https://corporate.basic-fit.com/", "basic_fit_results_rendered"
+        )
+        assert len(candidates) == 2
+        # "Download" is only 8 chars, under parse_results_html()'s own
+        # len(text) > 8 threshold for trusting the bare link text as the
+        # title, so it falls back to the block - link_text (used by
+        # classify()) is still the raw anchor text "Download", though.
+        assert all(c.raw.get("link_text") == "Download" for c in candidates)
+
+        events = []
+        for cand in candidates:
+            event_type = monitor.classify(cand)
+            assert event_type is not None, cand.raw.get("context")
+            event = monitor.normalize(cand, event_type)
+            assert event is not None
+            events.append(event)
+
+        periods = {e.reporting_period for e in events}
+        types = {e.event_type for e in events}
+        assert periods == {"Q1-2026", "FY-2025"}
+        assert types == {EventType.TRADING_UPDATE, EventType.FULL_YEAR_RESULTS}
+
+
+# ==========================================================================
+class TestBodytechPage:
+    def test_non_pdf_document_link_in_financial_section_is_recovered(self):
+        # Reproduces the production incident: the static fetch found the
+        # page (its text is even search-engine indexed, so it is not purely
+        # client-rendered) but produced 0 items because the real document
+        # link is a "/download/..." viewer URL, not a bare ".pdf" href, so
+        # the old strict `.endswith(".pdf")` filter dropped it - and the
+        # Playwright fallback then also failed, waiting 30s for a
+        # `a[href*='.pdf']` selector that the same real markup never
+        # satisfies either.
+        html = """
+        <html><body>
+        <section>
+          <h2>Demonstrações Financeiras</h2>
+          <ul>
+            <li>Demonstrações Financeiras - Exercício de 2025
+                <a href="/download/documento?id=4821">Baixar</a></li>
+          </ul>
+        </section>
+        <section>
+          <h2>Outras publicações legais</h2>
+          <ul>
+            <li>Ata de Assembleia <a href="/download/documento?id=9911">Baixar</a></li>
+          </ul>
+        </section>
+        </body></html>
+        """
+        monitor = BodytechMonitor(cfg("bodytech"))
+        candidates = monitor.parse_site_html(
+            html, "https://www.bodytech.com.br/", "bodytech_politicas_html"
+        )
+        assert len(candidates) == 1
+        assert candidates[0].document_url.endswith("id=4821")
+
+        event_type = monitor.classify(candidates[0])
+        assert event_type == EventType.ANNUAL_FINANCIAL_STATEMENTS
+        event = monitor.normalize(candidates[0], event_type)
+        assert event.reporting_period == "FY-2025"
 
 
 # ==========================================================================

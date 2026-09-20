@@ -21,6 +21,20 @@ companies:
     # MZ platform. Confirmed: the page is rendered client-side (plain HTTP
     # returns "Nenhum arquivo para o ano selecionado"), so the fallback is
     # Playwright until a backend endpoint is confirmed.
+    #
+    # As of 2026-09-20, ri.bluefit.com.br's own TLS certificate is expired
+    # (confirmed via both plain HTTP and Playwright - see the ERR_CERT_DATE
+    # handling in monitors/bluefit.py). Certificate verification is
+    # deliberately never disabled to work around this. A lead for an
+    # official alternate source: a real Bluefit document was found during
+    # that investigation at api.mziq.com (MZ's own shared platform domain,
+    # which should have a normally-maintained certificate) under company id
+    # d83ecf03-07f6-4822-8e26-922775bc0a72. This is NOT a confirmed listing
+    # endpoint - only a single document URL turned up by a web search - so
+    # it is documented here rather than guessed into candidate_endpoints
+    # below. Confirm the actual listing endpoint via browser devtools on
+    # https://ri.bluefit.com.br/en/financial-information/results-center/
+    # before adding it.
     candidate_endpoints: []
     pdf_fallback: true
 
@@ -86,6 +100,15 @@ companies:
     enabled: true
     # Confirmed live path (the /investor/financial-results/quarterly-results/
     # URL in the brief now redirects here). Both are tried.
+    #
+    # As of 2026-09-20 this monitor gets 404 from every corporate.puregym.com
+    # /investors/ URL, including primary_url below and the bare /investors/
+    # root. A web search still indexes primary_url's exact title ("Pure Gym
+    # Limited - Investors - Results, Reports & Presentations"), i.e. the URL
+    # itself is not stale - this looks like the whole section is rejecting
+    # this monitor's requests specifically (WAF/bot-detection or an IP-range
+    # block), which is out of scope to try to get around. Verify by loading
+    # primary_url in an ordinary browser before changing any URL here.
     primary_url: https://corporate.puregym.com/investors/results-reports-and-presentations/default.aspx
     overview_url: https://corporate.puregym.com/investors/default.aspx
     candidate_endpoints: []
@@ -102,6 +125,16 @@ companies:
     monitor: benefit_systems
     enabled: true
     primary_url: https://corp.benefitsystems.pl/en/for-investors/reports/
+    # As of 2026-09-20, corp.benefitsystems.pl returns HTTP 403 to this
+    # monitor's requests (confirmed live, not just locally). No attempt is
+    # made to get around it (no header/User-Agent spoofing) - it may be a
+    # WAF/bot-detection block. A lead for an official alternate source:
+    # Benefit Systems (GPW:BFT) current/periodic reports are also filed
+    # through the Warsaw Stock Exchange's own ESPI/EBI system at
+    # https://www.gpw.pl/espi-ebi-reports (searchable by issuer). This is a
+    # regulator-hosted mirror, not confirmed to have a stable per-issuer
+    # query URL or a structured (non-HTML-scrape) endpoint - needs manual
+    # confirmation before it can replace or supplement primary_url above.
 
   leejam:
     name: Leejam
