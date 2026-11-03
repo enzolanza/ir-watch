@@ -91,6 +91,28 @@ def test_sats_uses_file_names_and_skips_the_annual_report():
     assert events["Q3-2026"].document_url.endswith("sats-asa-q3-2026-report.pdf")
 
 
+def test_sats_featured_banner_does_not_hide_the_pdf():
+    # Estrutura real (nov/2026): destaque no topo levando à própria página,
+    # depois a tabela com o PDF, cujo link só tem ícone e "Report" oculto.
+    html = """
+    <section class="hero"><a href="https://satsgroup.com/reports-presentations/">Q3 Report 2026</a></section>
+    <div class="table-body">
+      <div class="table-title"><div class="report-name"> q3 Report 2026 </div>
+        <div class="report-date">27 Oct 2026</div></div>
+      <div class="table-report"><a href="https://storage.mfn.se/355c/sats-asa-q3-2026-report.pdf">
+        <span class="mobile-only-heading">Report</span><img src="pdf.svg"/></a></div>
+      <div class="table-report"><a href="https://storage.mfn.se/7d2f/sats-asa-q3-2026-presentation.pdf">
+        <span class="mobile-only-heading">Presentation</span><img src="pdf.svg"/></a></div>
+    </div>
+    """
+    monitor = SATSMonitor(CompanyConfig(key="sats", name="SATS", monitor="sats"))
+    (cand,) = monitor.parse_reports_page(html, "https://satsgroup.com/reports-presentations/")
+    event = monitor.normalize(cand, monitor.classify(cand))
+    assert event.reporting_period == "Q3-2026"
+    assert event.document_url == "https://storage.mfn.se/355c/sats-asa-q3-2026-report.pdf"
+    assert event.presentation_url.endswith("q3-2026-presentation.pdf")
+
+
 # ==========================================================================
 # Nova tentativa automática
 # ==========================================================================
