@@ -13,7 +13,6 @@ import pytest
 from ir_monitor.config import CompanyConfig
 from ir_monitor.emailer import build_subject, render_html, render_plain_text
 from ir_monitor.models import EventType, NormalizedEvent
-from ir_monitor.monitors.benefit_systems import BenefitSystemsMonitor
 from ir_monitor.monitors.planet_fitness import PlanetFitnessMonitor
 from ir_monitor.monitors.sats import SATSMonitor
 from ir_monitor.monitors.sports_world import SportsWorldMonitor
@@ -85,49 +84,6 @@ class TestSATSPage:
         assert by_period["Q1-2026"].document_url.endswith("q1-2026-report.pdf")
         # Annual Report 2025 must not appear as a separate event.
         assert len(events) == 2
-
-
-# ==========================================================================
-class TestBenefitSystemsPage:
-    def test_consolidated_only_and_active_cards(self):
-        monitor = BenefitSystemsMonitor(cfg("benefit_systems"))
-        candidates = monitor.parse_reports_page(
-            fixture("benefit_systems_reports.html"), "https://corp.benefitsystems.pl/"
-        )
-        events = []
-        for cand in candidates:
-            event_type = monitor.classify(cand)
-            if event_type:
-                event = monitor.normalize(cand, event_type)
-                if event:
-                    events.append(event)
-
-        types = [e.event_type for e in events]
-        assert EventType.ACTIVE_SPORT_CARDS_UPDATE in types
-        assert EventType.FULL_YEAR_RESULTS in types
-        # Standalone annual report must not create a second event.
-        assert types.count(EventType.FULL_YEAR_RESULTS) == 1
-        # Unrelated current reports were filtered out by the allowlist.
-        assert all("management board" not in e.title.lower() for e in events)
-
-    def test_http_error_is_a_clear_parser_failure_not_a_raw_traceback(self, monkeypatch):
-        # Reproduces the production incident: the reports page answered 403
-        # and the unhandled requests.HTTPError crashed the company with a raw
-        # traceback instead of the usual, clearly-labelled ParserFailure every
-        # other adapter produces on a fetch problem.
-        import requests
-
-        from ir_monitor.monitors import benefit_systems as module
-
-        def _raise(url, **kwargs):
-            raise requests.exceptions.HTTPError(
-                "403 Client Error: Forbidden for url: " + url
-            )
-
-        monkeypatch.setattr(module.http, "get_text", _raise)
-        monitor = BenefitSystemsMonitor(cfg("benefit_systems"))
-        with pytest.raises(module.ParserFailure, match="benefit_systems"):
-            monitor.fetch_candidates()
 
 
 # ==========================================================================

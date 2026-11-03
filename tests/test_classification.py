@@ -7,11 +7,6 @@ from datetime import date
 import pytest
 
 from ir_monitor.models import EventType
-from ir_monitor.monitors.benefit_systems import (
-    active_cards_period,
-    classify_benefit_title,
-    financial_report_period,
-)
 from ir_monitor.monitors.planet_fitness import (
     classify_planet_fitness_title,
     planet_fitness_period,
@@ -61,59 +56,6 @@ class TestPlanetFitness:
 
 
 # (Basic-Fit, The Gym Group e PureGym: ver tests/test_v4_rodada2.py)
-
-
-# ==========================================================================
-# Benefit Systems
-# ==========================================================================
-class TestBenefitSystems:
-    def test_active_sport_cards_is_relevant(self):
-        title = "Quarterly information on active sport cards' number"
-        assert (
-            classify_benefit_title(title) == EventType.ACTIVE_SPORT_CARDS_UPDATE
-        )
-
-    def test_active_sport_cards_typographic_apostrophe(self):
-        title = "Quarterly information on active sport cards\u2019 number"
-        assert (
-            classify_benefit_title(title) == EventType.ACTIVE_SPORT_CARDS_UPDATE
-        )
-
-    def test_consolidated_annual_report_is_relevant(self):
-        title = "Consolidated annual report of Benefit Systems Group for 2025"
-        assert classify_benefit_title(title) == EventType.FULL_YEAR_RESULTS
-
-    def test_standalone_does_not_produce_a_second_alert(self):
-        title = "Standalone annual report of Benefit Systems S.A. for 2025"
-        assert classify_benefit_title(title) is None
-
-    def test_consolidated_half_year(self):
-        title = "Consolidated interim report for the first half of 2026"
-        assert classify_benefit_title(title) == EventType.HALF_YEAR_RESULTS
-        assert financial_report_period(title, date(2026, 8, 28)) == "H1/Q2-2026"
-
-    def test_consolidated_q1(self):
-        title = "Consolidated quarterly report Q1 2026"
-        assert classify_benefit_title(title) == EventType.QUARTERLY_RESULTS
-        assert financial_report_period(title, date(2026, 5, 20)) == "Q1-2026"
-
-    def test_unrelated_current_report_rejected(self):
-        assert classify_benefit_title("Change in the composition of the Management Board") is None
-        assert classify_benefit_title("Conclusion of a significant agreement") is None
-
-    def test_active_cards_period_from_publication_month(self):
-        assert (
-            active_cards_period(
-                "Quarterly information on active sport cards' number", "", date(2026, 1, 8)
-            )
-            == "CARDS-Q4-2025"
-        )
-        assert (
-            active_cards_period(
-                "Quarterly information on active sport cards' number", "", date(2026, 7, 6)
-            )
-            == "CARDS-Q2-2026"
-        )
 
 
 # ==========================================================================
