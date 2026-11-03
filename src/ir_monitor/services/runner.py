@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Iterable
 
 from sqlalchemy import select
@@ -23,7 +24,7 @@ from ..database import (
     mark_bootstrapped,
     session_scope,
 )
-from ..emailer import EmailSender, EmailSendError, build_sender, company_name
+from ..emailer import EmailSender, EmailSendError, build_sender, company_name, pt_period
 from ..models import CompanyRunResult, RunSummary
 from ..monitors import ParserFailure, build_monitor
 from ..util import format_local, now_local
@@ -45,6 +46,14 @@ HISTORY_RESETS: dict[str, tuple[str, ...]] = {
     V2_RESET_FLAG: V2_RESET_COMPANIES,
     "v3_reset_leejam_done": ("leejam",),
 }
+
+
+def _retry_delay() -> float:
+    """Espera (segundos) antes de tentar de novo uma empresa que falhou."""
+    try:
+        return max(0.0, float(os.getenv("RETRY_DELAY_SECONDS", "15")))
+    except ValueError:
+        return 15.0
 
 
 def _blind_after() -> int:
@@ -107,13 +116,26 @@ def run(
             run_id = run_row.id
 
     for config in companies:
-        result = _run_one(
-            config,
+        kwargs = dict(
             baseline=baseline,
             alerts=alerts,
             dry_run=dry_run,
             allow_missing_bootstrap=allow_missing_bootstrap,
         )
+        result = _run_one(config, **kwargs)
+        if not result.ok:
+            # Sites às vezes devolvem uma página de erro ou de verificação
+            # por alguns segundos. Uma nova tentativa evita contar como falha
+            # um tropeço passageiro.
+            delay = _retry_delay()
+            logger.warning(
+                "company=%s action=retry_after_failure delay=%ss error=%s",
+                config.key,
+                delay,
+                result.error,
+            )
+            time.sleep(delay)
+            result = _run_one(config, **kwargs)
         summary.results.append(result)
         if not dry_run and not baseline:
             _track_health(config.key, result, sender)
@@ -357,7 +379,7 @@ def _notify_baseline(config: CompanyConfig, result: CompanyRunResult, sender: Em
     ]
     for event in events[:3]:
         date_txt = event.publication_date.strftime("%d/%m/%Y") if event.publication_date else "sem data"
-        lines.append(f"- {event.reporting_period} ({date_txt}): {event.document_url or event.title}")
+        lines.append(f"- {pt_period(event.reporting_period)} ({date_txt}): {event.document_url or event.title}")
     try:
         sender.open_notice(f"Linha de base registrada — {config.name}", "\n".join(lines))
     except EmailSendError as exc:
