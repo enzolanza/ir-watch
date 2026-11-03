@@ -80,6 +80,8 @@ jobs:
         id: run
         run: |
           mkdir -p state
+          # Cópia do estado ANTES da execução, para saber depois se algo mudou.
+          if [ -f state/ir_watch.db ]; then cp state/ir_watch.db "$RUNNER_TEMP/before.db"; fi
           MODE="${{ github.event.inputs.mode || 'check' }}"
           ARGS=""
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="--dry-run"; fi
@@ -95,6 +97,13 @@ jobs:
         run: |
           if [ ! -f state/ir_watch.db ]; then
             echo "No state file was produced."
+            exit 0
+          fi
+          # Só grava quando algo importante mudou (documento novo, alerta
+          # enviado, falha nova ou recuperada). Execuções sem novidade não
+          # enchem o histórico do repositório.
+          if [ -f "$RUNNER_TEMP/before.db" ] && ! python -m ir_monitor state-changed "$RUNNER_TEMP/before.db" state/ir_watch.db; then
+            echo "Nada mudou: não há o que salvar."
             exit 0
           fi
           git config user.name  "github-actions[bot]"

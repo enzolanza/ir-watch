@@ -82,7 +82,7 @@ class TestBasicFit:
         assert q3.document_url.endswith(".pdf")
         assert q3.event_key == "basic_fit|TU-Q3-2026"
         assert "JAN-TU-2026" in periods and "H1-2026" in periods and "FY-2025" in periods
-        assert build_issue_title(q3) == "Basic-Fit — Trading update — TU-Q3-2026"
+        assert build_issue_title(q3) == "Basic-Fit — Trading update — 3º trimestre de 2026"
 
     def test_missing_data_block_is_a_failure(self):
         with pytest.raises(ParserFailure):
@@ -151,7 +151,7 @@ class TestTheGymGroup:
         assert h1.publication_date == date(2026, 9, 9)
         assert h1.document_url == "https://www.tggplc.com/media/02sjcows/rns-hy26-final.pdf"
         assert h1.presentation_url.endswith("tgg-2026-half-year-results.pdf")
-        assert build_issue_title(h1) == "The Gym Group — Resultado semestral — H1-2026"
+        assert build_issue_title(h1) == "The Gym Group — Resultado semestral — 1º semestre de 2026"
 
     def test_layout_change_is_a_failure(self):
         with pytest.raises(ParserFailure):
@@ -187,7 +187,7 @@ class TestPureGym:
         assert q2.event_key == "puregym|Q2-2026"
         assert periods["Q4/FY-2025"].publication_date == date(2026, 3, 19)
         assert ("pageSize", "-1") in captured["params"]
-        assert build_issue_title(q2) == "PureGym — Relatório trimestral — Q2-2026"
+        assert build_issue_title(q2) == "PureGym — Relatório trimestral — 2º trimestre de 2026"
 
     def test_bad_shape_is_a_failure(self):
         with pytest.raises(ParserFailure):

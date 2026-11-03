@@ -208,7 +208,7 @@ def test_issue_is_in_portuguese():
         key_includes_event_type=False,
     )
     assert build_issue_title(event) == (
-        "Bluefit — Demonstrações financeiras trimestrais (ITR) — 3T2026"
+        "Bluefit — Demonstrações financeiras trimestrais (ITR) — 3º trimestre de 2026"
     )
     from ir_monitor.util import now_local
 
@@ -347,7 +347,7 @@ class TestRunnerProtections:
         assert summary.alerts_sent == 0
         assert len(sender.notices) == 1
         assert "Linha de base registrada — NewCo" == sender.notices[0][1]
-        assert "Anual 2025" in sender.notices[0][2]
+        assert "ano de 2025" in sender.notices[0][2]
 
     def test_v2_reset_deletes_old_rows_of_the_three_companies_once(self, runner):
         self._bootstrap(runner)
