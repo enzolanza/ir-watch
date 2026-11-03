@@ -13,8 +13,6 @@ from ir_monitor.monitors.benefit_systems import (
     classify_benefit_title,
     financial_report_period,
 )
-from ir_monitor.monitors.bluefit import classify_bluefit_document
-from ir_monitor.monitors.bodytech import bodytech_fiscal_year, classify_bodytech_document
 from ir_monitor.monitors.leejam import leejam_period
 from ir_monitor.monitors.planet_fitness import (
     classify_planet_fitness_title,
@@ -22,7 +20,6 @@ from ir_monitor.monitors.planet_fitness import (
 )
 from ir_monitor.monitors.puregym import puregym_period
 from ir_monitor.monitors.sats import classify_sats_title
-from ir_monitor.monitors.selfit import classify_selfit_document
 from ir_monitor.monitors.sports_world import sports_world_period_tuple
 from ir_monitor.monitors.the_gym_group import classify_tgg_title, tgg_period
 from ir_monitor.monitors.xponential import xponential_period
@@ -326,67 +323,4 @@ class TestPeriodNormalization:
         )
 
 
-# ==========================================================================
-# Bluefit / Selfit / Bodytech
-# ==========================================================================
-class TestBrazilianAdapters:
-    def test_bluefit_accepts_alternative_release_names(self):
-        for title in (
-            "Release de Resultados 1T26",
-            "Comentário de Desempenho 2T26",
-            "Relatório da Administração 4T25",
-        ):
-            assert classify_bluefit_document(title) == EventType.EARNINGS_RELEASE, title
-
-    def test_bluefit_rejects_other_documents(self):
-        for title in (
-            "Apresentação de Resultados 1T26",
-            "Demonstrações Financeiras 2025",
-            "Formulário de Referência 2026",
-            "Transcrição da Teleconferência 1T26",
-            "Ata da Assembleia Geral Ordinária",
-        ):
-            assert classify_bluefit_document(title) is None, title
-
-    def test_selfit_annual_statements_from_section(self):
-        assert (
-            classify_selfit_document(
-                "DF 2025", "Demonstrações financeiras anuais", "/pdfs/df-2025.pdf"
-            )
-            == EventType.ANNUAL_FINANCIAL_STATEMENTS
-        )
-
-    def test_selfit_ignores_other_sections(self):
-        assert (
-            classify_selfit_document(
-                "Ata da AGO 2026", "Assembleias e Atas", "/pdfs/ata-ago-2026.pdf"
-            )
-            is None
-        )
-        assert (
-            classify_selfit_document(
-                "Relatório do Agente Fiduciário", "Debêntures", "/pdfs/agente.pdf"
-            )
-            is None
-        )
-
-    def test_bodytech_financial_statements_only(self):
-        assert (
-            classify_bodytech_document(
-                "Demonstrações Financeiras 2025", "Demonstrações financeiras", "/df2025.pdf"
-            )
-            == EventType.ANNUAL_FINANCIAL_STATEMENTS
-        )
-        assert (
-            classify_bodytech_document(
-                "Edital de Convocação", "Outras publicações legais", "/edital.pdf"
-            )
-            is None
-        )
-
-    def test_bodytech_fiscal_year_from_exercise_wording(self):
-        text = (
-            "Demonstrações financeiras referentes ao exercício social findo em "
-            "31 de dezembro de 2025"
-        )
-        assert bodytech_fiscal_year(text) == 2025
+# Bluefit, Selfit e Bodytech: ver tests/test_v2_brasil.py

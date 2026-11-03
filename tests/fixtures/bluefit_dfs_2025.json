@@ -1,0 +1,4 @@
+{"success": true, "data": {"document_metas": [
+ {"id": "be87b535-6232-48af-bdcc-97420f53eade", "file_title": "Demonstrações Financeiras Anuais  - 31 de dezembro de 2025", "file_quarter": 4, "file_year": 2025, "file_published_date": "2026-03-31T00:00:00.000Z", "internal_name": "dfs", "is_published": true, "file_url": "https://api.mziq.com/mzfilemanager/v2/d/d83ecf03-07f6-4822-8e26-922775bc0a72/4f49802b-0d9b-64d7-4856-0ad61500bf0f?origin=2"},
+ {"id": "c20c06a4-57f4-4bbf-bcf9-d0ee7d22b1c6", "file_title": "Demonstrações financeiras individuais e Consolidadas - 3o ITR 2025", "file_quarter": 3, "file_year": 2025, "file_published_date": "2025-11-13T00:00:00.000Z", "internal_name": "dfs", "is_published": true, "file_url": "https://api.mziq.com/mzfilemanager/v2/d/d83ecf03-07f6-4822-8e26-922775bc0a72/aaaa0000-0000-0000-0000-000000000003?origin=2"}
+]}}

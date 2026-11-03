@@ -1,0 +1,4 @@
+{"success": true, "data": {"document_metas": [
+ {"id": "670ed039-59b0-4cd0-b1a0-59c88d1bb60a", "file_title": "Demonstrações Financeiras intermediárias - 30/06/2026", "file_quarter": 2, "file_year": 2026, "file_published_date": "2026-08-13T00:00:00.000Z", "file_date": "2026-08-13T00:00:00.000Z", "internal_name": "dfs", "is_published": true, "file_url": "https://api.mziq.com/mzfilemanager/v2/d/d83ecf03-07f6-4822-8e26-922775bc0a72/c05010f5-3c6d-47c6-1cd1-2e3d8cd62fd6?origin=2"},
+ {"id": "fe27f425-0448-4166-847c-8e9e8b3a4895", "file_title": "Demonstrações Financeiras Intermediárias- 1ITR26", "file_quarter": 1, "file_year": 2026, "file_published_date": "2026-05-15T00:00:00.000Z", "file_date": "2026-05-15T00:00:00.000Z", "internal_name": "dfs", "is_published": true, "file_url": "https://api.mziq.com/mzfilemanager/v2/d/d83ecf03-07f6-4822-8e26-922775bc0a72/46523d43-65a4-5fc0-d9da-9d123f9e68f9?origin=2"}
+]}}
