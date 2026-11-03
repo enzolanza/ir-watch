@@ -1,0 +1,122 @@
+# Lista de empresas monitoradas.
+#
+# v2 (nov/2026): Bluefit, Selfit e Bodytech revisadas.
+# Rodada 1: Planet Fitness, Xponential, Sports World, SATS e Leejam religadas.
+# As demais continuam descritas abaixo, desligadas (enabled: false), até
+# serem revisadas nas próximas rodadas.
+#
+# min_documents / min_relevant: quantos documentos, no mínimo, o robô espera
+# encontrar.
+# Se encontrar menos, ele trata como FALHA (o site mudou) e não como
+# "nada de novo". Isso evita que o robô fique cego sem avisar.
+
+companies:
+
+  bluefit:
+    name: Bluefit
+    monitor: bluefit
+    enabled: true
+    primary_url: https://ri.bluefit.com.br/informacoes-financeiras/central-de-resultados/
+    # Catálogo da plataforma MZ consultado pela página "Central de Resultados".
+    # Alerta em TODA demonstração financeira (ITR trimestral e DFP anual):
+    # a Bluefit não publica release de resultados.
+    api_url: https://apicatalog.mziq.com/filemanager/company/d83ecf03-07f6-4822-8e26-922775bc0a72/filter/categories/year/meta
+    category: dfs
+    min_documents: 1
+
+  selfit:
+    name: Selfit
+    monitor: selfit
+    enabled: true
+    primary_url: https://www.selfitacademias.com.br/investidores
+    # Seção "Demonstrações financeiras anuais" da própria página.
+    min_documents: 5
+
+  bodytech:
+    name: Bodytech
+    monitor: bodytech
+    enabled: true
+    primary_url: https://www.bodytech.com.br/pt/politicas/?topico=2
+    # Catálogo interno consultado pela página "Políticas e documentos".
+    api_url: https://www.bodytech.com.br/novo-portal/api/documents/list-all
+    min_documents: 5
+
+  planet_fitness:
+    name: Planet Fitness
+    monitor: planet_fitness
+    enabled: true
+    primary_url: https://investor.planetfitness.com/
+    # Feed oficial de comunicados. Ele só guarda os 10 mais recentes, então
+    # pode haver semanas sem nenhum resultado listado: por isso min_relevant 0.
+    # (Se o feed vier vazio ou quebrado, o robô ainda trata como falha.)
+    rss_url: https://investor.planetfitness.com/rss/pressrelease.aspx
+    min_relevant: 0
+
+  xponential:
+    name: Xponential Fitness
+    monitor: xponential
+    enabled: true
+    # Lê a página "Quarterly Results" E o feed de notícias (o feed costuma
+    # sair antes). Um resultado gera um alerta só.
+    min_relevant: 4
+    primary_url: https://investor.xponential.com/financial-information/quarterly-results
+    rss_url: https://investor.xponential.com/news/rss
+
+  sports_world:
+    name: Sports World
+    monitor: sports_world
+    enabled: true
+    min_relevant: 8
+    primary_url: https://www.sportsworld.com.mx/inversionistas/centro-de-reportes/reportes-trimestrales
+    probe_enabled: true
+    probe_lookahead: 2
+
+  basic_fit:
+    name: Basic-Fit
+    monitor: basic_fit
+    enabled: false   # desligada na v2 (foco em Bluefit, Selfit e Bodytech)
+    primary_url: https://corporate.basic-fit.com/investors/financial-results
+    press_url: https://corporate.basic-fit.com/investors/press-releases
+    candidate_endpoints: []
+
+  the_gym_group:
+    name: The Gym Group
+    monitor: the_gym_group
+    enabled: false   # desligada na v2 (foco em Bluefit, Selfit e Bodytech)
+    primary_url: https://www.tggplc.com/investors/results-reports-and-presentations/
+    press_url: https://www.tggplc.com/investors/news/
+
+  puregym:
+    name: PureGym
+    monitor: puregym
+    enabled: false   # desligada na v2 (foco em Bluefit, Selfit e Bodytech)
+    # Confirmed live path (the /investor/financial-results/quarterly-results/
+    # URL in the brief now redirects here). Both are tried.
+    primary_url: https://corporate.puregym.com/investors/results-reports-and-presentations/default.aspx
+    overview_url: https://corporate.puregym.com/investors/default.aspx
+    candidate_endpoints: []
+
+  sats:
+    name: SATS
+    monitor: sats
+    enabled: true
+    min_relevant: 8
+    primary_url: https://satsgroup.com/reports-presentations/
+    news_url: https://satsgroup.com/investor-news/
+
+  benefit_systems:
+    name: Benefit Systems
+    monitor: benefit_systems
+    enabled: false   # desligada na v2 (foco em Bluefit, Selfit e Bodytech)
+    primary_url: https://corp.benefitsystems.pl/en/for-investors/reports/
+
+  leejam:
+    name: Leejam
+    monitor: leejam
+    enabled: true
+    primary_url: https://leejam.com.sa/investor-relations/disclosures-and-events/
+    # Painel "News and Announcements" (Euroland), que reproduz no mesmo dia
+    # os comunicados da Leejam à bolsa saudita.
+    api_url: https://ksatools.eurolandir.com/tools/Pressreleases/Main/GetNews/
+    company_code: sa-1830
+    min_relevant: 2

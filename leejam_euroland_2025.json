@@ -1,0 +1,38 @@
+{
+ "total": 4,
+ "period": "01/01/2025 - 31/12/2025",
+ "News": [
+  {
+   "formatedDate": "",
+   "title": "Leejam Sports Company Announces the Opening of Two New Center in Jubail Industrial City",
+   "type": "Company Announcement",
+   "ID": 7845645,
+   "hasAttachments": true,
+   "date": "/Date(1765108800000)/"
+  },
+  {
+   "formatedDate": "",
+   "title": "Leejam Sports Company Announces Its interim Consolidated Financial Results for the Period Ended On 30th September 2025 (Nine months)",
+   "type": "Company Announcement",
+   "ID": 7825433,
+   "hasAttachments": true,
+   "date": "/Date(1761652800000)/"
+  },
+  {
+   "formatedDate": "",
+   "title": "Leejam Sports Company Announces Its interim Consolidated Financial Results for the Period Ended On 30th June 2025 (Six months)",
+   "type": "Company Announcement",
+   "ID": 7761819,
+   "hasAttachments": true,
+   "date": "/Date(1753876800000)/"
+  },
+  {
+   "formatedDate": "",
+   "title": "Leejam Sports Company Announces the Results of The Ordinary General Assembly Meeting",
+   "type": "Company Announcement",
+   "ID": 7700001,
+   "hasAttachments": true,
+   "date": "/Date(1749556800000)/"
+  }
+ ]
+}
