@@ -1,19 +1,25 @@
 # IR Watch
 
-Robô que avisa quando **Bluefit**, **Selfit** ou **Bodytech** publicam novas
-demonstrações financeiras. O aviso chega como uma *issue* neste repositório,
-e o GitHub manda um e-mail sobre ela.
+Robô que avisa quando empresas do setor de academias publicam seus
+resultados. O aviso chega como uma *issue* neste repositório, e o GitHub
+manda um e-mail sobre ela.
 
 ## O que cada empresa publica e onde o robô olha
 
-| Empresa | O que gera alerta | Onde o robô olha | Frequência |
-|---|---|---|---|
-| Bluefit | Demonstrações financeiras trimestrais (ITR) e anuais (DFP) | Catálogo de documentos da "Central de Resultados" do site de RI | 4 vezes por ano |
-| Selfit | Demonstrações financeiras anuais | Seção "Demonstrações financeiras anuais" da página de investidores | 1 vez por ano |
-| Bodytech | Demonstrações financeiras anuais | Item "Demonstrações financeiras" da página "Políticas e documentos" | 1 vez por ano |
+| Empresa | O que gera alerta | Onde o robô olha |
+|---|---|---|
+| Bluefit | Demonstrações financeiras trimestrais (ITR) e anuais (DFP) | Catálogo de documentos da "Central de Resultados" do site de RI |
+| Selfit | Demonstrações financeiras anuais | Seção "Demonstrações financeiras anuais" da página de investidores |
+| Bodytech | Demonstrações financeiras anuais | Item "Demonstrações financeiras" da página "Políticas e documentos" |
+| Planet Fitness | Comunicado "Announces ... Quarter ... Results" | Feed oficial de comunicados |
+| Xponential | Earnings Release | Página "Quarterly Results" **e** feed de notícias (o que sair primeiro) |
+| Sports World | Reporte trimestral (1T a 4T) | Página "Reportes Trimestrales" |
+| SATS | "Qx Report" | Página "Reports & Presentations" |
+| Leejam | Resultados consolidados (trimestrais e anuais) | Painel "News and Announcements" do site de RI, que reproduz no mesmo dia os comunicados à bolsa saudita |
 
 A Bluefit não publica "release de resultados", por isso o alerta dela é
-sobre as demonstrações financeiras.
+sobre as demonstrações financeiras. Basic-Fit, The Gym Group, PureGym e
+Benefit Systems estão desligadas enquanto são revisadas.
 
 ## Como funciona
 
@@ -50,8 +56,8 @@ não abre alertas. Use antes de aprovar qualquer mudança no robô.
 ## Ligar ou desligar empresas
 
 Em `config/companies.yaml`, cada empresa tem `enabled: true` (ligada) ou
-`enabled: false` (desligada). As outras 9 empresas da versão 1 continuam lá,
-desligadas. A versão 1 completa está guardada na branch `v1-backup`.
+`enabled: false` (desligada). A versão 1 completa está guardada na branch
+`v1-backup`.
 
 ## Para quem programa
 
@@ -62,5 +68,5 @@ python -m ir_monitor inspect --company bluefit --verbose
 python -m ir_monitor check --dry-run          # simula, não grava nada
 ```
 
-Código das empresas: `src/ir_monitor/monitors/{bluefit,selfit,bodytech}.py`.
+Código das empresas: `src/ir_monitor/monitors/<empresa>.py`.
 Lógica de execução e proteções: `src/ir_monitor/services/runner.py`.
