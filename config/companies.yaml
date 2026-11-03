@@ -3,7 +3,7 @@
 # v2 (nov/2026): Bluefit, Selfit e Bodytech revisadas.
 # Rodada 1: Planet Fitness, Xponential, Sports World, SATS e Leejam religadas.
 # Rodada 2: Basic-Fit, The Gym Group e PureGym com leitores novos.
-# A Benefit Systems continua desligada (enabled: false) até a Rodada 3.
+# Rodada 3: Benefit Systems, via repositório oficial ESPI/EBI (PAP).
 #
 # min_documents / min_relevant: quantos documentos, no mínimo, o robô espera
 # encontrar.
@@ -107,8 +107,13 @@ companies:
   benefit_systems:
     name: Benefit Systems
     monitor: benefit_systems
-    enabled: false   # desligada na v2 (foco em Bluefit, Selfit e Bodytech)
-    primary_url: https://corp.benefitsystems.pl/en/for-investors/reports/
+    enabled: true
+    primary_url: https://espiebi.pap.pl/wyszukiwarka?search=BENEFIT%20SYSTEMS
+    # Fonte: ESPI/EBI da PAP, repositório oficial dos comunicados das empresas
+    # listadas em Varsóvia. O site da empresa bloqueia acessos automáticos.
+    search: BENEFIT SYSTEMS
+    lookback_days: 400
+    min_relevant: 3
 
   leejam:
     name: Leejam

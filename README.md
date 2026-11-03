@@ -19,10 +19,10 @@ manda um e-mail sobre ela.
 | Basic-Fit | Trading updates (janeiro, Q1 e Q3), resultado semestral e anual | Lista de divulgações embutida na página "Financial Results" |
 | The Gym Group | Pre-close trading update (jan/jul), resultado anual e semestral | Página "Results, Reports and Presentations" |
 | PureGym | Relatório trimestral (o do 4º trimestre é o anual) | Catálogo de relatórios da página "Quarterly Results" |
+| Benefit Systems | Relatórios consolidados (trimestral, semestral e anual) e número trimestral de cartões esportivos ativos | Repositório oficial ESPI/EBI da PAP (o site da empresa bloqueia robôs) |
 
 A Bluefit não publica "release de resultados", por isso o alerta dela é
-sobre as demonstrações financeiras. A Benefit Systems está desligada enquanto
-é revisada.
+sobre as demonstrações financeiras.
 
 ## Como funciona
 
