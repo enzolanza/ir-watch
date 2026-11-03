@@ -1,199 +1,163 @@
-"""The Gym Group - Results, reports and presentations page (static HTML).
+"""The Gym Group: pre-close trading updates e resultados anual/semestral.
 
-Four recurring disclosures are relevant:
+Fonte: a página "Results, Reports and Presentations"
+(https://www.tggplc.com/investors/results-reports-and-presentations/), que
+já vem pronta do servidor com as 12 divulgações mais recentes (data, título
+e PDF). Não precisa de navegador simulado.
 
-    January   Pre-close trading update   -> FY_PRE_CLOSE-(YYYY-1)
-    March     Full Year Results          -> FY-(YYYY-1)
-    July      Pre-close trading update   -> H1_PRE_CLOSE-YYYY
-    September Interim Results            -> H1-YYYY
+Regra (anexo original, conferida em nov/2026):
+  gera alerta    -> Pre-close trading update (jan/jul), Full Year Results,
+                    Interim Results
+  não gera       -> "Notice of Pre-Close Trading Update" (aviso de data),
+                    Annual Report and Accounts, visitas, outros relatórios
 
-The critical false positive is "Notice of Pre-Close Trading Update", which only
-announces the date of a future update. Rejection of any "Notice of ..." title
-happens before any acceptance rule, so plain substring matching never applies.
+Atenção: o site escreve setembro como "Sept" ("09 Sept 2026"). A v1 não
+entendia esse formato e descartava as divulgações em silêncio.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date
+from urllib.parse import urljoin
+
+from bs4 import BeautifulSoup
 
 from .. import http
 from ..models import CandidateEvent, EventType, NormalizedEvent
-from ..normalization import canonical_url, parse_date, slug_title, squash
-from .base import CompanyMonitor, HTMLSourceMixin, ParserFailure, candidate
+from ..normalization import slug_title, squash
+from .base import CompanyMonitor, ParserFailure
 
-SOURCE_HTML = "tgg_results_reports_html"
-SOURCE_PRESS = "tgg_press_releases_html"
+logger = logging.getLogger(__name__)
 
-DEFAULT_URL = "https://www.tggplc.com/investors/results-reports-and-presentations/"
-DEFAULT_PRESS_URL = "https://www.tggplc.com/investors/news/"
-
-# Rejected first, unconditionally.
-NOTICE_RE = re.compile(r"^\s*notice\s+of\b")
-
-# Not anchored to the start of the title: real link text on the results page
-# routinely carries a date/filetype prefix or a trailing suffix (e.g. "07 Mar
-# 2025 - Full Year Results" or "Full Year Results 2025.pdf"), and NOTICE_RE
-# above already rejects "Notice of ..." titles before these ever run, so a
-# leading-anchor here only causes false negatives, not false positives.
-PRE_CLOSE_RE = re.compile(r"\bpre-?\s*close\s+trading\s+update\b")
-FULL_YEAR_RE = re.compile(r"\bfull\s+year\s+results\b")
-INTERIM_RE = re.compile(r"\binterim\s+results\b")
-
-IGNORE_RE = re.compile(
-    r"\b(annual\s+report(\s+and\s+accounts)?|site\s+visit|capital\s+markets\s+day|"
-    r"presentation|webcast|transcript|agm|circular|prospectus)\b"
-)
-
+SOURCE = "tgg_results_page"
+_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+DATE_RE = re.compile(r"\b(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(20\d{2})\b")
 YEAR_RE = re.compile(r"\b(20\d{2})\b")
 
 
-class TheGymGroupMonitor(HTMLSourceMixin, CompanyMonitor):
-    key = "the_gym_group"
-    min_expected_candidates = 1
-
-    def fetch_candidates(self) -> list[CandidateEvent]:
-        url = self.config.primary_url or DEFAULT_URL
-        try:
-            html = http.get_text(url)
-            items = self.parse_results_page(html, url)
-            if items:
-                self.source_used = SOURCE_HTML
-                return items
-        except Exception:  # noqa: BLE001 - fall back to press releases
-            pass
-
-        press_url = self.config.option("press_url", DEFAULT_PRESS_URL)
-        html = http.get_text(press_url)
-        items = self.parse_results_page(html, press_url, source=SOURCE_PRESS)
-        if not items:
-            raise ParserFailure(
-                "the_gym_group: neither results page nor press releases yielded items"
-            )
-        self.source_used = SOURCE_PRESS
-        return items
-
-    # ------------------------------------------------------------------
-    def parse_results_page(
-        self, html: str, base_url: str, source: str = SOURCE_HTML
-    ) -> list[CandidateEvent]:
-        soup = self.soup_from(html)
-        out: list[CandidateEvent] = []
-        seen: set[str] = set()
-        for text, url, anchor in self.iter_links(soup, base_url):
-            if not text or len(text) < 5:
-                continue
-            key = f"{slug_title(text)}|{url}"
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(
-                candidate(
-                    self.key,
-                    source,
-                    text,
-                    url=url,
-                    document_url=url if url.lower().endswith(".pdf") else None,
-                    publication_date=_nearby_date(anchor),
-                    context=_context_text(anchor),
-                )
-            )
-        return out
-
-    # ------------------------------------------------------------------
-    def classify(self, cand: CandidateEvent) -> str | None:
-        return classify_tgg_title(cand.title)
-
-    def normalize(self, cand: CandidateEvent, event_type: str) -> NormalizedEvent | None:
-        published = cand.publication_date or parse_date(cand.raw.get("context", ""))
-        period = tgg_period(event_type, cand.title, published)
-        if not period:
-            return None
-        return NormalizedEvent(
-            company=self.key,
-            event_type=event_type,
-            reporting_period=period,
-            title=cand.title,
-            source=cand.source,
-            publication_date=published,
-            primary_url=cand.url,
-            document_url=cand.document_url or cand.url,
-            pdf_url=cand.document_url,
-            document_identifier=canonical_url(cand.url),
-            issuer="The Gym Group plc",
-            ticker="GYM.L",
-        )
+def parse_tgg_date(text: str) -> date | None:
+    match = DATE_RE.search(text or "")
+    if not match:
+        return None
+    month = _MONTHS.get(match.group(2).lower()[:4]) or _MONTHS.get(match.group(2).lower()[:3])
+    if not month:
+        return None
+    try:
+        return date(int(match.group(3)), month, int(match.group(1)))
+    except ValueError:
+        return None
 
 
-def classify_tgg_title(title: str) -> str | None:
+def classify_tgg(title: str) -> str | None:
     low = slug_title(title)
-    if NOTICE_RE.search(low):
+    if re.search(r"\bnotice\s+of\b", low):
+        return None  # aviso de data, não é a divulgação
+    if re.search(r"annual\s+report|site\s+visit|presentation|pulse\s+report|agm\b", low):
         return None
-    if IGNORE_RE.search(low):
-        return None
-    if PRE_CLOSE_RE.search(low):
+    if "pre-close" in low or "pre close" in low or "preclose" in low:
         return EventType.PRE_CLOSE_TRADING_UPDATE
-    if FULL_YEAR_RE.search(low):
-        return EventType.FULL_YEAR_RESULTS
-    if INTERIM_RE.search(low):
+    if "trading update" in low or "trading statement" in low:
+        return EventType.TRADING_UPDATE
+    if re.search(r"\binterim\s+results\b|\bhalf[\s-]+year\s+results\b", low):
         return EventType.INTERIM_RESULTS
+    if re.search(r"\bfull[\s-]+year\s+results\b|\bpreliminary\s+results\b|\bannual\s+results\b", low):
+        return EventType.FULL_YEAR_RESULTS
     return None
 
 
 def tgg_period(event_type: str, title: str, published: date | None) -> str | None:
-    """Map an event to its reporting period using the publication month."""
-    explicit_year = YEAR_RE.search(slug_title(title))
-    year = int(explicit_year.group(1)) if explicit_year else None
-    month = published.month if published else None
-    if year is None:
+    low = slug_title(title)
+    year_match = YEAR_RE.search(low)
+    year = int(year_match.group(1)) if year_match else None
+    if event_type == EventType.PRE_CLOSE_TRADING_UPDATE:
         if published is None:
             return None
-        year = published.year
-
-    if event_type == EventType.FULL_YEAR_RESULTS:
-        # Published in March, reporting the previous financial year, unless the
-        # title itself names the year (e.g. "Full Year Results 2025").
-        if explicit_year:
-            return f"FY-{year}"
-        return f"FY-{year - 1}"
-
+        # Pre-close de janeiro fala do ano anterior; o de julho, do 1º semestre.
+        if published.month <= 3:
+            return f"PRECLOSE-FY-{published.year - 1}"
+        if 6 <= published.month <= 8:
+            return f"PRECLOSE-H1-{published.year}"
+        return f"PRECLOSE-{published.isoformat()}"
+    if event_type == EventType.TRADING_UPDATE:
+        return f"TU-{published.isoformat()}" if published else None
     if event_type == EventType.INTERIM_RESULTS:
-        return f"H1-{year}"
-
-    if event_type == EventType.PRE_CLOSE_TRADING_UPDATE:
-        if month is None:
-            return None
-        if month <= 4:
-            return f"FY_PRE_CLOSE-{year - 1}"
-        return f"H1_PRE_CLOSE-{year}"
-
+        year = year or (published.year if published else None)
+        return f"H1-{year}" if year else None
+    if event_type == EventType.FULL_YEAR_RESULTS:
+        if year is None and published:
+            year = published.year - 1
+        return f"FY-{year}" if year else None
     return None
 
 
-def _context_text(anchor, max_levels: int = 4) -> str:
-    node = anchor
-    for _ in range(max_levels):
-        node = node.parent
-        if node is None:
-            break
-        text = squash(node.get_text(" ", strip=True))
-        if len(text) > 20:
-            return text[:400]
-    return ""
+def parse_tgg_html(html: str, page_url: str, company: str = "the_gym_group") -> list[CandidateEvent]:
+    soup = BeautifulSoup(html, "html.parser")
+    items = soup.select(".results-items__item")
+    if not items:
+        raise ParserFailure("the_gym_group: lista de divulgações não encontrada na página")
+    out: list[CandidateEvent] = []
+    for item in items:
+        title_el = item.select_one(".results-items__title")
+        date_el = item.select_one(".results-items__date")
+        title = squash(title_el.get_text(" ", strip=True)) if title_el else ""
+        if not title:
+            continue
+        document_url = presentation_url = webcast_url = None
+        for anchor in item.find_all("a", href=True):
+            text = slug_title(anchor.get_text(" ", strip=True))
+            href = urljoin(page_url, anchor["href"].strip())
+            if "presentation" in text and not presentation_url:
+                presentation_url = href
+            elif "webcast" in text and not webcast_url:
+                webcast_url = href
+            elif not document_url:
+                document_url = href
+        out.append(
+            CandidateEvent(
+                company=company,
+                source=SOURCE,
+                title=title,
+                url=page_url,
+                document_url=document_url,
+                publication_date=parse_tgg_date(date_el.get_text(" ", strip=True) if date_el else ""),
+                raw={"presentation_url": presentation_url, "webcast_url": webcast_url},
+            )
+        )
+    return out
 
 
-def _nearby_date(anchor) -> date | None:
-    node = anchor
-    for _ in range(5):
-        node = node.parent
-        if node is None:
-            return None
-        time_tag = node.find("time")
-        if time_tag is not None:
-            parsed = parse_date(time_tag.get("datetime") or time_tag.get_text(strip=True))
-            if parsed:
-                return parsed
-        parsed = parse_date(squash(node.get_text(" ", strip=True))[:80])
-        if parsed:
-            return parsed
-    return None
+class TheGymGroupMonitor(CompanyMonitor):
+    min_expected_candidates = 1
+
+    def fetch_candidates(self) -> list[CandidateEvent]:
+        url = self.config.primary_url
+        self.source_used = SOURCE
+        return parse_tgg_html(http.get_text(url), url, self.key)
+
+    def classify(self, candidate: CandidateEvent) -> str | None:
+        return classify_tgg(candidate.title)
+
+    def normalize(self, candidate: CandidateEvent, event_type: str) -> NormalizedEvent | None:
+        period = tgg_period(event_type, candidate.title, candidate.publication_date)
+        if not period:
+            name = (candidate.document_url or candidate.title).rsplit("/", 1)[-1]
+            period = f"doc-{name[:60]}"
+            logger.warning("company=the_gym_group action=unknown_period title=%r", candidate.title)
+        return NormalizedEvent(
+            company=self.key,
+            event_type=event_type,
+            reporting_period=period,
+            title=candidate.title,
+            source=candidate.source,
+            publication_date=candidate.publication_date,
+            primary_url=self.config.primary_url,
+            document_url=candidate.document_url,
+            presentation_url=candidate.raw.get("presentation_url"),
+            webcast_url=candidate.raw.get("webcast_url"),
+            key_includes_event_type=False,
+        )
