@@ -40,10 +40,27 @@ sobre as demonstrações financeiras.
   Quando a empresa voltar a funcionar, a issue é encerrada sozinha.
 - **Nunca "nada de novo" por engano:** se uma lista vier vazia ou diferente do
   esperado, o robô trata como falha (e avisa), não como silêncio.
+- **Nova tentativa automática:** se a leitura de uma empresa falhar, o robô
+  espera alguns segundos e tenta de novo antes de contar como falha. Sites às
+  vezes devolvem uma página de erro passageira.
 - **Alerta que falhou é reenviado** na execução seguinte.
 - **Primeira leitura de uma empresa:** tudo que já está publicado vira histórico
   (sem alerta), e o robô abre uma issue "Linha de base registrada — <empresa>"
   listando o documento mais recente para você conferir no site.
+
+## Como é um alerta
+
+O título diz a empresa, o tipo de documento e o período, por exemplo:
+"Basic-Fit — Trading update — 3º trimestre de 2026". Dentro da issue estão o
+link do documento e, quando a empresa disponibiliza, da apresentação e do
+webcast.
+
+## O histórico do robô
+
+O estado (`state/ir_watch.db`) só é gravado no repositório quando algo
+importante muda: um documento novo, um alerta enviado, uma falha nova ou
+recuperada. Execuções sem novidade não deixam rastro no histórico, mas
+aparecem normalmente na aba **Actions**.
 
 ## Para receber os e-mails
 
