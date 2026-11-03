@@ -1,0 +1,54 @@
+{
+ "total": 6,
+ "period": "01/01/2026 - 31/12/2026",
+ "News": [
+  {
+   "formatedDate": "",
+   "title": "Leejam Sports Company Announces the Distribution of Cash Dividend for The Third Quarter of 2026",
+   "type": "Company Announcement",
+   "ID": 8166400,
+   "hasAttachments": true,
+   "date": "/Date(1793620800000)/"
+  },
+  {
+   "formatedDate": "",
+   "title": "Leejam Sports Company Announces Its Interim Consolidated Financial Results for the Period Ended on 30 September 2026 (Nine Months)",
+   "type": "Company Announcement",
+   "ID": 8166368,
+   "hasAttachments": true,
+   "date": "/Date(1793620800000)/"
+  },
+  {
+   "formatedDate": "",
+   "title": "Leejam Sports Company Announces the Opening of a New Men Center in Riyadh",
+   "type": "Company Announcement",
+   "ID": 8160001,
+   "hasAttachments": true,
+   "date": "/Date(1793188800000)/"
+  },
+  {
+   "formatedDate": "",
+   "title": "Leejam Sports Company Announces Its Interim Consolidated Financial Results for the Period Ended on 30 June 2026 (Six Months)",
+   "type": "Company Announcement",
+   "ID": 8104530,
+   "hasAttachments": true,
+   "date": "/Date(1785240000000)/"
+  },
+  {
+   "formatedDate": "",
+   "title": "Leejam Sports Company Announces Its interim Consolidated Financial Results for the Period Ended On 31 March 2026 (Three months)",
+   "type": "Company Announcement",
+   "ID": 7949471,
+   "hasAttachments": true,
+   "date": "/Date(1777377600000)/"
+  },
+  {
+   "formatedDate": "",
+   "title": "Leejam Sports Company Announces Its Annual Consolidated Financial Results for the year Ended in On 31 December 2025 (Twelve months)",
+   "type": "Company Announcement",
+   "ID": 7903779,
+   "hasAttachments": true,
+   "date": "/Date(1771416000000)/"
+  }
+ ]
+}
