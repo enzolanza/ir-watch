@@ -49,7 +49,10 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_cmd.add_argument("--verbose", action="store_true")
 
     sub.add_parser("send-test-email", help="Validate the SMTP configuration.")
-    sub.add_parser("list-companies", help="Show the configured watch list.")
+    list_cmd = sub.add_parser(
+        "list-companies", help="Show the enabled companies (use --all to include disabled)."
+    )
+    list_cmd.add_argument("--all", action="store_true", dest="show_all")
 
     return parser
 
@@ -59,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging(args.log_level, args.log_format)
 
     if args.command == "list-companies":
-        return _cmd_list_companies()
+        return _cmd_list_companies(args.show_all)
     if args.command == "send-test-email":
         return _cmd_send_test_email()
     if args.command == "inspect":
@@ -94,8 +97,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 # --------------------------------------------------------------------------
-def _cmd_list_companies() -> int:
-    companies = load_companies()
+def _cmd_list_companies(show_all: bool = False) -> int:
+    companies = {
+        k: c for k, c in load_companies().items() if show_all or c.enabled
+    }
+    if not companies:
+        return 0
     width = max(len(k) for k in companies)
     for key, config in companies.items():
         status = "enabled " if config.enabled else "disabled"

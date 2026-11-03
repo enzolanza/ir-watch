@@ -1,0 +1,44 @@
+{
+ "data": [
+  {
+   "id": 1,
+   "title": "Política de Privacidade",
+   "topic": 0,
+   "item": "html",
+   "content": "<p>texto</p>",
+   "link": null,
+   "order": 0,
+   "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+   "id": 13,
+   "title": "Demonstrações financeiras",
+   "topic": 2,
+   "item": "html",
+   "content": "Para reforçar nosso compromisso com a transparência, e em atendimento, quando aplicável, ao disposto no art. 294 da Lei das S/A, disponibilizamos abaixo as demonstrações financeiras.<ul><li><img src='/icons/pdf.svg' /><a target='_blank' href='https://medias.bodytech.com.br/balances/ABodytech_Balanco_2025.pdf'>DEMONSTRAÇÕES FINANCEIRAS DA BODYTECH - EXERCÍCIO DE 2025</a></li><br/><li><img src='/icons/pdf.svg' /><a target='_blank' href='https://medias.bodytech.com.br/balances/ABodytech_Balanco_2024.pdf'>DEMONSTRAÇÕES FINANCEIRAS DA BODYTECH - EXERCÍCIO DE 2024</a></li><br/><li><img src='/icons/pdf.svg' /><a target='_blank' href='https://medias.bodytech.com.br/balances/ABodytech_Balanco_2023.pdf'>DEMONSTRAÇÕES FINANCEIRAS DA BODYTECH - EXERCÍCIO DE 2023</a></li><br/><li><img src='/icons/pdf.svg' /><a target='_blank' href='https://medias.bodytech.com.br/balances/ABodytech_Balanco_2022.pdf'>DEMONSTRAÇÕES FINANCEIRAS DA BODYTECH - EXERCÍCIO DE 2022</a></li><br/><li><img src='/icons/pdf.svg' /><a target='_blank' href='https://medias.bodytech.com.br/balances/ABodytech_Balanco_2021.pdf'>DEMONSTRAÇÕES FINANCEIRAS DA BODYTECH - EXERCÍCIO DE 2021</a></li><br/><li><img src='/icons/pdf.svg' /><a target='_blank' href='https://medias.bodytech.com.br/balances/ABodytech_Balanco_2020.pdf'>DEMONSTRAÇÕES FINANCEIRAS DA BODYTECH - EXERCÍCIO DE 2020</a></li><br/><li><img src='/icons/pdf.svg' /><a target='_blank' href='https://medias.bodytech.com.br/balances/ABodytech_Balanco_2019.pdf'>DEMONSTRAÇÕES FINANCEIRAS DA BODYTECH - EXERCÍCIO DE 2019</a></li><br/></ul>",
+   "link": "/balances/ABodytech_Balanco_2025.pdf",
+   "order": 0,
+   "createdAt": "2026-04-06T15:14:12.000Z"
+  },
+  {
+   "id": 14,
+   "title": "Demonstrações Financeiras disponibilizadas na Central de Balanços (CB) do Sistema Público de Escrituração Digital (SPED)",
+   "topic": 2,
+   "item": "html",
+   "content": "<a href='https://www.gov.br/sped/2024.pdf'>Exercício de 2024</a>",
+   "link": null,
+   "order": 1,
+   "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+   "id": 15,
+   "title": "Outras publicações legais",
+   "topic": 2,
+   "item": "html",
+   "content": "<a href='https://medias.bodytech.com.br/legal/edital-2026.pdf'>Edital de convocação 2026</a>",
+   "link": null,
+   "order": 2,
+   "createdAt": "2025-01-01T00:00:00.000Z"
+  }
+ ]
+}
