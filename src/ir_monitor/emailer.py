@@ -156,6 +156,10 @@ PT_COMPANY_EVENT_TYPES = {
     ("sports_world", "earnings_release"): "Reporte trimestral",
     ("puregym", "quarterly_results"): "Relatório trimestral",
     ("the_gym_group", "interim_results"): "Resultado semestral",
+    ("benefit_systems", "quarterly_results"): "Relatório trimestral consolidado",
+    ("benefit_systems", "half_year_results"): "Relatório semestral consolidado",
+    ("benefit_systems", "full_year_results"): "Relatório anual consolidado",
+    ("benefit_systems", "active_sport_cards_update"): "Número de cartões esportivos ativos",
 }
 
 
