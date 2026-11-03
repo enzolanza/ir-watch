@@ -137,8 +137,23 @@ def render_html(event: NormalizedEvent, detected_at: datetime) -> str:
 # --------------------------------------------------------------------------
 
 PT_EVENT_TYPES = {
-    "quarterly_results": "Demonstrações financeiras trimestrais (ITR)",
+    "quarterly_results": "Resultado trimestral",
     "annual_financial_statements": "Demonstrações financeiras anuais",
+    "earnings_release": "Release de resultados",
+    "half_year_results": "Resultado semestral",
+    "full_year_results": "Resultado anual",
+    "interim_results": "Resultado trimestral",
+    "trading_update": "Trading update",
+    "pre_close_trading_update": "Pre-close trading update",
+    "active_sport_cards_update": "Número de cartões ativos",
+}
+
+#: Rótulos específicos por empresa, quando o genérico não descreve bem o
+#: documento (ex.: na Bluefit, o "trimestral" é a demonstração financeira).
+PT_COMPANY_EVENT_TYPES = {
+    ("bluefit", "quarterly_results"): "Demonstrações financeiras trimestrais (ITR)",
+    ("sats", "quarterly_results"): "Relatório trimestral",
+    ("sports_world", "earnings_release"): "Reporte trimestral",
 }
 
 
@@ -156,7 +171,7 @@ def company_name(key: str) -> str:
 
 
 def build_issue_title(event: NormalizedEvent) -> str:
-    label = PT_EVENT_TYPES.get(
+    label = PT_COMPANY_EVENT_TYPES.get((event.company, event.event_type)) or PT_EVENT_TYPES.get(
         event.event_type, HUMAN_EVENT_TYPES.get(event.event_type, event.event_type)
     )
     return f"{company_name(event.company)} — {label} — {event.reporting_period}"

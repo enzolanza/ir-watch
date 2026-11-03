@@ -38,6 +38,14 @@ logger = logging.getLogger(__name__)
 V2_RESET_COMPANIES = ("bluefit", "selfit", "bodytech")
 V2_RESET_FLAG = "v2_reset_done"
 
+#: Cada limpeza roda UMA vez (marcada no banco pelo nome da chave).
+#: v3/rodada 1: Leejam mudou de fonte e o histórico antigo tinha erros
+#: (ex.: um "Q4/FY-2026" que ainda nem existe e bloquearia o alerta real).
+HISTORY_RESETS: dict[str, tuple[str, ...]] = {
+    V2_RESET_FLAG: V2_RESET_COMPANIES,
+    "v3_reset_leejam_done": ("leejam",),
+}
+
 
 def _blind_after() -> int:
     """Quantas execuções seguidas com falha até abrir o aviso 'sem monitoramento'."""
@@ -240,15 +248,21 @@ def _run_one(
 # --------------------------------------------------------------------------
 
 def _v2_reset_once(session) -> None:
-    if session.get(Meta, V2_RESET_FLAG) is not None:
-        return
-    rows = session.execute(
-        select(Event).where(Event.company.in_(V2_RESET_COMPANIES))
-    ).scalars().all()
-    for row in rows:
-        session.delete(row)
-    session.add(Meta(key=V2_RESET_FLAG, value=now_local().isoformat()))
-    logger.warning("action=v2_reset deleted_events=%d companies=%s", len(rows), V2_RESET_COMPANIES)
+    for flag, companies in HISTORY_RESETS.items():
+        if session.get(Meta, flag) is not None:
+            continue
+        rows = session.execute(
+            select(Event).where(Event.company.in_(companies))
+        ).scalars().all()
+        for row in rows:
+            session.delete(row)
+        session.add(Meta(key=flag, value=now_local().isoformat()))
+        logger.warning(
+            "action=history_reset flag=%s deleted_events=%d companies=%s",
+            flag,
+            len(rows),
+            companies,
+        )
 
 
 def _get_meta(session, key: str) -> str | None:
