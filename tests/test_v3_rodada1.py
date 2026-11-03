@@ -125,7 +125,7 @@ class TestLeejamMonitor:
     def test_issue_title(self, leejam_api):
         _, events = LeejamMonitor(config_module.load_companies()["leejam"]).run()
         q3 = next(e for e in events if e.reporting_period == "Q3/9M-2026")
-        assert build_issue_title(q3) == "Leejam — Resultado trimestral — Q3/9M-2026"
+        assert build_issue_title(q3) == "Leejam — Resultado trimestral — 3º trimestre (9 meses) de 2026"
 
 
 # ==========================================================================
@@ -269,7 +269,7 @@ def test_leejam_history_is_reset_once_and_others_are_kept(db, leejam_api, monkey
 
     assert summary.alerts_sent == 0
     assert [n[1] for n in sender.notices] == ["Linha de base registrada — Leejam"]
-    assert "Q3/9M-2026" in sender.notices[0][2]
+    assert "3º trimestre (9 meses) de 2026" in sender.notices[0][2]
     with db_module.session_scope() as session:
         keys = {e.event_key for e in session.execute(select(Event)).scalars()}
         assert "leejam|Q4/FY-2026" not in keys  # o registro errado sumiu

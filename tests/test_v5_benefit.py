@@ -98,10 +98,10 @@ def test_monitor_reads_all_pages_and_keeps_only_relevant(espi):
     assert cards.event_key == "benefit_systems|CARDS-Q3-2026"
     assert cards.document_url == "https://espiebi.pap.pl/node/738487"
     assert build_issue_title(cards) == (
-        "Benefit Systems — Número de cartões esportivos ativos — CARDS-Q3-2026"
+        "Benefit Systems — Número de cartões esportivos ativos — 3º trimestre de 2026"
     )
     assert build_issue_title(by_period["H1-2026"]) == (
-        "Benefit Systems — Relatório semestral consolidado — H1-2026"
+        "Benefit Systems — Relatório semestral consolidado — 1º semestre de 2026"
     )
 
 
