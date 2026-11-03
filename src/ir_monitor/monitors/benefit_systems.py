@@ -133,6 +133,13 @@ def parse_espi_html(html: str, company: str = "benefit_systems") -> list[Candida
     return out
 
 
+def _describe(html: str) -> str:
+    """Resumo curto do que chegou, para diagnóstico no relatório da execução."""
+    title = re.search(r"<title[^>]*>(.*?)</title>", html or "", re.S | re.I)
+    text = squash(re.sub(r"<[^>]+>", " ", html or ""))[:150]
+    return f"título: {squash(title.group(1))[:80] if title else '-'}; início: {text or '-'}"
+
+
 class BenefitSystemsMonitor(CompanyMonitor):
     min_expected_candidates = 1
 
@@ -157,7 +164,10 @@ class BenefitSystemsMonitor(CompanyMonitor):
                 params["page"] = str(page)
             html = http.get_text(SEARCH_URL, params=params)
             if page == 0 and "newsList" not in html and "view-wszukiwarka" not in html:
-                raise ParserFailure("benefit_systems: página de busca do ESPI em formato inesperado")
+                raise ParserFailure(
+                    "benefit_systems: página de busca do ESPI em formato inesperado "
+                    f"({_describe(html)})"
+                )
             items = parse_espi_html(html, self.key)
             fresh = [c for c in items if c.url not in seen]
             if not fresh:

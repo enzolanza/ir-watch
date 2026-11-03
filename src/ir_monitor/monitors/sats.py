@@ -87,9 +87,16 @@ class SATSMonitor(HTMLSourceMixin, CompanyMonitor):
             match = QUARTER_REPORT_RE.search(haystack)
             if not match:
                 continue
-            if ANNUAL_REPORT_RE.search(slug_title(text)):
+            # No site, os links dos PDFs costumam ser só ícones (sem texto):
+            # o nome do arquivo diz o que é (q3-2026-report, ...-presentation,
+            # annual-report-2025). Sem isso, o relatório anual era tomado
+            # pelo relatório do 4º trimestre.
+            file_name = slug_title(
+                url.split("?", 1)[0].rsplit("/", 1)[-1].replace("-", " ").replace("_", " ")
+            )
+            if ANNUAL_REPORT_RE.search(slug_title(text)) or ANNUAL_REPORT_RE.search(file_name):
                 continue
-            label = _document_label(text)
+            label = _document_label(f"{text} {file_name}")
             bucket_key = f"Q{match.group(1)} Report {match.group(2)}"
             bucket = buckets.setdefault(
                 bucket_key,
