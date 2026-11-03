@@ -49,6 +49,12 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_cmd.add_argument("--verbose", action="store_true")
 
     sub.add_parser("send-test-email", help="Validate the SMTP configuration.")
+    changed = sub.add_parser(
+        "state-changed",
+        help="Exit 0 if the state changed meaningfully between two database files, 1 if not.",
+    )
+    changed.add_argument("before")
+    changed.add_argument("after")
     list_cmd = sub.add_parser(
         "list-companies", help="Show the enabled companies (use --all to include disabled)."
     )
@@ -61,6 +67,12 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     configure_logging(args.log_level, args.log_format)
 
+    if args.command == "state-changed":
+        from .state_diff import state_changed
+
+        result = state_changed(args.before, args.after)
+        print("Estado mudou." if result else "Nada mudou no estado.")
+        return 0 if result else 1
     if args.command == "list-companies":
         return _cmd_list_companies(args.show_all)
     if args.command == "send-test-email":

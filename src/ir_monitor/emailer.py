@@ -176,11 +176,38 @@ def company_name(key: str) -> str:
     return _company_label(key)
 
 
+_ORD = {"1": "1º", "2": "2º", "3": "3º", "4": "4º"}
+
+
+def pt_period(period: str) -> str:
+    """Período legível em português. A chave interna não muda."""
+    import re as _re
+
+    p = (period or "").strip()
+    rules = [
+        (r"^Q4/FY-(\d{4})$", lambda m: f"4º trimestre e ano de {m[1]}"),
+        (r"^Q2/H1-(\d{4})$", lambda m: f"2º trimestre (1º semestre) de {m[1]}"),
+        (r"^Q3/9M-(\d{4})$", lambda m: f"3º trimestre (9 meses) de {m[1]}"),
+        (r"^(?:TU-|CARDS-)?Q([1-4])-(\d{4})$", lambda m: f"{_ORD[m[1]]} trimestre de {m[2]}"),
+        (r"^([1-3])T(\d{4})$", lambda m: f"{_ORD[m[1]]} trimestre de {m[2]}"),
+        (r"^(?:Anual|FY)[ -](\d{4})$", lambda m: f"ano de {m[1]}"),
+        (r"^H1-(\d{4})$", lambda m: f"1º semestre de {m[1]}"),
+        (r"^JAN-TU-(\d{4})$", lambda m: f"janeiro de {m[1]}"),
+        (r"^PRECLOSE-FY-(\d{4})$", lambda m: f"fechamento do ano de {m[1]}"),
+        (r"^PRECLOSE-H1-(\d{4})$", lambda m: f"fechamento do 1º semestre de {m[1]}"),
+    ]
+    for pattern, render in rules:
+        match = _re.match(pattern, p)
+        if match:
+            return render(match)
+    return p
+
+
 def build_issue_title(event: NormalizedEvent) -> str:
     label = PT_COMPANY_EVENT_TYPES.get((event.company, event.event_type)) or PT_EVENT_TYPES.get(
         event.event_type, HUMAN_EVENT_TYPES.get(event.event_type, event.event_type)
     )
-    return f"{company_name(event.company)} — {label} — {event.reporting_period}"
+    return f"{company_name(event.company)} — {label} — {pt_period(event.reporting_period)}"
 
 
 def render_issue_body(event: NormalizedEvent, detected_at: datetime) -> str:
@@ -191,11 +218,18 @@ def render_issue_body(event: NormalizedEvent, detected_at: datetime) -> str:
         f"**Novo documento publicado por {company_name(event.company)}.**",
         "",
         f"- **Documento:** {event.title}",
-        f"- **Período:** {event.reporting_period}",
+        f"- **Período:** {pt_period(event.reporting_period)}",
         f"- **Data de publicação no site:** {published}",
         f"- **Detectado pelo robô em:** {format_local(detected_at)}",
         f"- **Link do documento:** {event.document_url or '-'}",
         f"- **Página da empresa:** {event.primary_url or '-'}",
+    ]
+    extras = [
+        ("Apresentação", event.presentation_url),
+        ("Webcast", event.webcast_url),
+    ]
+    lines += [f"- **{name}:** {url}" for name, url in extras if url]
+    lines += [
         "",
         f"<sub>chave: `{event.event_key}`</sub>",
     ]
@@ -385,8 +419,9 @@ class ConsoleEmailSender(EmailSender):
 def build_sender(dry_run: bool = False) -> EmailSender:
     """Pick the alert channel.
 
-    ALERT_PROVIDER=smtp          -> SMTPEmailSender (default)
-    ALERT_PROVIDER=github_issue  -> GitHubIssueSender (no external accounts)
+    ALERT_PROVIDER=github_issue  -> GitHubIssueSender (o que roda no GitHub)
+    ALERT_PROVIDER=console       -> ConsoleEmailSender (só mostra na tela)
+    ALERT_PROVIDER=smtp          -> SMTPEmailSender (padrão antigo da v1)
     """
     import os
 
@@ -395,4 +430,6 @@ def build_sender(dry_run: bool = False) -> EmailSender:
     provider = (os.getenv("ALERT_PROVIDER") or "smtp").strip().lower()
     if provider in {"github_issue", "github", "issue"}:
         return GitHubIssueSender()
+    if provider == "console":
+        return ConsoleEmailSender()
     return SMTPEmailSender()
