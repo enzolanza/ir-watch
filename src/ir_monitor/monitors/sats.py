@@ -107,7 +107,11 @@ class SATSMonitor(HTMLSourceMixin, CompanyMonitor):
                     "block": block_text,
                 },
             )
-            bucket["links"].setdefault(label, url)
+            # O destaque do topo da página ("Q3 Report 2026") leva à própria
+            # página. Quando houver mais de um link do mesmo tipo, o PDF vence.
+            current = bucket["links"].get(label)
+            if current is None or (not _is_pdf(current) and _is_pdf(url)):
+                bucket["links"][label] = url
 
         out: list[CandidateEvent] = []
         for title, bucket in buckets.items():
@@ -196,6 +200,10 @@ def classify_sats_title(title: str) -> str | None:
     if QUARTER_REPORT_RE.search(low) or NEWS_RESULT_RE.search(low):
         return EventType.QUARTERLY_RESULTS
     return None
+
+
+def _is_pdf(url: str) -> bool:
+    return url.split("?", 1)[0].split("#", 1)[0].lower().endswith(".pdf")
 
 
 def _document_label(text: str) -> str:
