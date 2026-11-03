@@ -1,0 +1,394 @@
+{
+ "GetFinancialReportListResult": [
+  {
+   "CoverImagePath": "",
+   "LanguageId": 1,
+   "ReportId": 21262,
+   "ReportOrder": 0,
+   "ReportSubType": "Second Quarter",
+   "ReportTitle": "Second Quarter 2026",
+   "ReportYear": 2026,
+   "RevisionNumber": 1,
+   "TagsList": [],
+   "ReportDate": "08/27/2026 00:00:00",
+   "WorkflowId": "x",
+   "Documents": [
+    {
+     "DocumentCategory": "webcast",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2026/q2/PureGym-Q2-26.mp3",
+     "DocumentTitle": "Webcast",
+     "DocumentType": "mp3"
+    },
+    {
+     "DocumentCategory": "presentation",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2026/q2/PureGym_Q2-26-Presentation.pdf",
+     "DocumentTitle": "Investor Presentation",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "other",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2026/q2/PureGym-Q2-26-Report.pdf",
+     "DocumentTitle": "Report",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "transcript",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2026/q2/PureGym-Q2-26-Transcript.pdf",
+     "DocumentTitle": "Transcript",
+     "DocumentType": "PDF"
+    }
+   ]
+  },
+  {
+   "CoverImagePath": "",
+   "LanguageId": 1,
+   "ReportId": 21261,
+   "ReportOrder": 0,
+   "ReportSubType": "First Quarter",
+   "ReportTitle": "First Quarter 2026",
+   "ReportYear": 2026,
+   "RevisionNumber": 1,
+   "TagsList": [],
+   "ReportDate": "05/19/2026 00:00:00",
+   "WorkflowId": "x",
+   "Documents": [
+    {
+     "DocumentCategory": "webcast",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2026/q1/PureGym-Q1-26.mp3",
+     "DocumentTitle": "Webcast",
+     "DocumentType": "mp3"
+    },
+    {
+     "DocumentCategory": "presentation",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2026/q1/PureGym_Q1-26-Presentation.pdf",
+     "DocumentTitle": "Investor Presentation",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "other",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2026/q1/PureGym-Q1-26-Report.pdf",
+     "DocumentTitle": "Report",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "transcript",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2026/q1/PureGym-Q1-26-Transcript.pdf",
+     "DocumentTitle": "Transcript",
+     "DocumentType": "PDF"
+    }
+   ]
+  },
+  {
+   "CoverImagePath": "",
+   "LanguageId": 1,
+   "ReportId": 21254,
+   "ReportOrder": 0,
+   "ReportSubType": "Fourth Quarter",
+   "ReportTitle": "Fourth Quarter 2025",
+   "ReportYear": 2025,
+   "RevisionNumber": 1,
+   "TagsList": [],
+   "ReportDate": "03/19/2026 00:00:00",
+   "WorkflowId": "x",
+   "Documents": [
+    {
+     "DocumentCategory": "webcast",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q4/PureGym-Q4-25.mp3",
+     "DocumentTitle": "Webcast",
+     "DocumentType": "mp3"
+    },
+    {
+     "DocumentCategory": "presentation",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q4/PureGym_Q4-25-Presentation.pdf",
+     "DocumentTitle": "Investor Presentation",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "other",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q4/PureGym-Q4-25-Report.pdf",
+     "DocumentTitle": "Report",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "transcript",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q4/PureGym-Q4-25-Transcript.pdf",
+     "DocumentTitle": "Transcript",
+     "DocumentType": "PDF"
+    }
+   ]
+  },
+  {
+   "CoverImagePath": "",
+   "LanguageId": 1,
+   "ReportId": 21253,
+   "ReportOrder": 0,
+   "ReportSubType": "Third Quarter",
+   "ReportTitle": "Third Quarter 2025",
+   "ReportYear": 2025,
+   "RevisionNumber": 1,
+   "TagsList": [],
+   "ReportDate": "11/20/2025 00:00:00",
+   "WorkflowId": "x",
+   "Documents": [
+    {
+     "DocumentCategory": "webcast",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q3/PureGym-Q3-25.mp3",
+     "DocumentTitle": "Webcast",
+     "DocumentType": "mp3"
+    },
+    {
+     "DocumentCategory": "presentation",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q3/PureGym_Q3-25-Presentation.pdf",
+     "DocumentTitle": "Investor Presentation",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "other",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q3/PureGym-Q3-25-Report.pdf",
+     "DocumentTitle": "Report",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "transcript",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q3/PureGym-Q3-25-Transcript.pdf",
+     "DocumentTitle": "Transcript",
+     "DocumentType": "PDF"
+    }
+   ]
+  },
+  {
+   "CoverImagePath": "",
+   "LanguageId": 1,
+   "ReportId": 21252,
+   "ReportOrder": 0,
+   "ReportSubType": "Second Quarter",
+   "ReportTitle": "Second Quarter 2025",
+   "ReportYear": 2025,
+   "RevisionNumber": 1,
+   "TagsList": [],
+   "ReportDate": "08/28/2025 00:00:00",
+   "WorkflowId": "x",
+   "Documents": [
+    {
+     "DocumentCategory": "webcast",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q2/PureGym-Q2-25.mp3",
+     "DocumentTitle": "Webcast",
+     "DocumentType": "mp3"
+    },
+    {
+     "DocumentCategory": "presentation",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q2/PureGym_Q2-25-Presentation.pdf",
+     "DocumentTitle": "Investor Presentation",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "other",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q2/PureGym-Q2-25-Report.pdf",
+     "DocumentTitle": "Report",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "transcript",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q2/PureGym-Q2-25-Transcript.pdf",
+     "DocumentTitle": "Transcript",
+     "DocumentType": "PDF"
+    }
+   ]
+  },
+  {
+   "CoverImagePath": "",
+   "LanguageId": 1,
+   "ReportId": 21251,
+   "ReportOrder": 0,
+   "ReportSubType": "First Quarter",
+   "ReportTitle": "First Quarter 2025",
+   "ReportYear": 2025,
+   "RevisionNumber": 1,
+   "TagsList": [],
+   "ReportDate": "05/20/2025 00:00:00",
+   "WorkflowId": "x",
+   "Documents": [
+    {
+     "DocumentCategory": "webcast",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q1/PureGym-Q1-25.mp3",
+     "DocumentTitle": "Webcast",
+     "DocumentType": "mp3"
+    },
+    {
+     "DocumentCategory": "presentation",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q1/PureGym_Q1-25-Presentation.pdf",
+     "DocumentTitle": "Investor Presentation",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "other",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q1/PureGym-Q1-25-Report.pdf",
+     "DocumentTitle": "Report",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "transcript",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2025/q1/PureGym-Q1-25-Transcript.pdf",
+     "DocumentTitle": "Transcript",
+     "DocumentType": "PDF"
+    }
+   ]
+  },
+  {
+   "CoverImagePath": "",
+   "LanguageId": 1,
+   "ReportId": 21244,
+   "ReportOrder": 0,
+   "ReportSubType": "Fourth Quarter",
+   "ReportTitle": "Fourth Quarter 2024",
+   "ReportYear": 2024,
+   "RevisionNumber": 1,
+   "TagsList": [],
+   "ReportDate": "03/20/2025 00:00:00",
+   "WorkflowId": "x",
+   "Documents": [
+    {
+     "DocumentCategory": "webcast",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q4/PureGym-Q4-24.mp3",
+     "DocumentTitle": "Webcast",
+     "DocumentType": "mp3"
+    },
+    {
+     "DocumentCategory": "presentation",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q4/PureGym_Q4-24-Presentation.pdf",
+     "DocumentTitle": "Investor Presentation",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "other",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q4/PureGym-Q4-24-Report.pdf",
+     "DocumentTitle": "Report",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "transcript",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q4/PureGym-Q4-24-Transcript.pdf",
+     "DocumentTitle": "Transcript",
+     "DocumentType": "PDF"
+    }
+   ]
+  },
+  {
+   "CoverImagePath": "",
+   "LanguageId": 1,
+   "ReportId": 21243,
+   "ReportOrder": 0,
+   "ReportSubType": "Third Quarter",
+   "ReportTitle": "Third Quarter 2024",
+   "ReportYear": 2024,
+   "RevisionNumber": 1,
+   "TagsList": [],
+   "ReportDate": "11/21/2024 00:00:00",
+   "WorkflowId": "x",
+   "Documents": [
+    {
+     "DocumentCategory": "webcast",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q3/PureGym-Q3-24.mp3",
+     "DocumentTitle": "Webcast",
+     "DocumentType": "mp3"
+    },
+    {
+     "DocumentCategory": "presentation",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q3/PureGym_Q3-24-Presentation.pdf",
+     "DocumentTitle": "Investor Presentation",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "other",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q3/PureGym-Q3-24-Report.pdf",
+     "DocumentTitle": "Report",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "transcript",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q3/PureGym-Q3-24-Transcript.pdf",
+     "DocumentTitle": "Transcript",
+     "DocumentType": "PDF"
+    }
+   ]
+  },
+  {
+   "CoverImagePath": "",
+   "LanguageId": 1,
+   "ReportId": 21242,
+   "ReportOrder": 0,
+   "ReportSubType": "Second Quarter",
+   "ReportTitle": "Second Quarter 2024",
+   "ReportYear": 2024,
+   "RevisionNumber": 1,
+   "TagsList": [],
+   "ReportDate": "08/29/2024 00:00:00",
+   "WorkflowId": "x",
+   "Documents": [
+    {
+     "DocumentCategory": "webcast",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q2/PureGym-Q2-24.mp3",
+     "DocumentTitle": "Webcast",
+     "DocumentType": "mp3"
+    },
+    {
+     "DocumentCategory": "presentation",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q2/PureGym_Q2-24-Presentation.pdf",
+     "DocumentTitle": "Investor Presentation",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "other",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q2/PureGym-Q2-24-Report.pdf",
+     "DocumentTitle": "Report",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "transcript",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q2/PureGym-Q2-24-Transcript.pdf",
+     "DocumentTitle": "Transcript",
+     "DocumentType": "PDF"
+    }
+   ]
+  },
+  {
+   "CoverImagePath": "",
+   "LanguageId": 1,
+   "ReportId": 21241,
+   "ReportOrder": 0,
+   "ReportSubType": "First Quarter",
+   "ReportTitle": "First Quarter 2024",
+   "ReportYear": 2024,
+   "RevisionNumber": 1,
+   "TagsList": [],
+   "ReportDate": "05/21/2024 00:00:00",
+   "WorkflowId": "x",
+   "Documents": [
+    {
+     "DocumentCategory": "webcast",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q1/PureGym-Q1-24.mp3",
+     "DocumentTitle": "Webcast",
+     "DocumentType": "mp3"
+    },
+    {
+     "DocumentCategory": "presentation",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q1/PureGym_Q1-24-Presentation.pdf",
+     "DocumentTitle": "Investor Presentation",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "other",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q1/PureGym-Q1-24-Report.pdf",
+     "DocumentTitle": "Report",
+     "DocumentType": "PDF"
+    },
+    {
+     "DocumentCategory": "transcript",
+     "DocumentPath": "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q1/PureGym-Q1-24-Transcript.pdf",
+     "DocumentTitle": "Transcript",
+     "DocumentType": "PDF"
+    }
+   ]
+  }
+ ]
+}

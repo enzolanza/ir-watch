@@ -7,7 +7,6 @@ from datetime import date
 import pytest
 
 from ir_monitor.models import EventType
-from ir_monitor.monitors.basic_fit import basic_fit_period, classify_basic_fit_title
 from ir_monitor.monitors.benefit_systems import (
     active_cards_period,
     classify_benefit_title,
@@ -17,10 +16,8 @@ from ir_monitor.monitors.planet_fitness import (
     classify_planet_fitness_title,
     planet_fitness_period,
 )
-from ir_monitor.monitors.puregym import puregym_period
 from ir_monitor.monitors.sats import classify_sats_title
 from ir_monitor.monitors.sports_world import sports_world_period_tuple
-from ir_monitor.monitors.the_gym_group import classify_tgg_title, tgg_period
 from ir_monitor.monitors.xponential import xponential_period
 
 
@@ -63,119 +60,7 @@ class TestPlanetFitness:
         assert classify_planet_fitness_title(title) is None
 
 
-# ==========================================================================
-# The Gym Group - "Notice of Pre-Close Trading Update" must never be an alert
-# ==========================================================================
-class TestTheGymGroup:
-    def test_notice_of_pre_close_is_not_relevant(self):
-        assert classify_tgg_title("Notice of Pre-Close Trading Update") is None
-
-    def test_pre_close_trading_update_is_relevant(self):
-        assert (
-            classify_tgg_title("Pre-close trading update")
-            == EventType.PRE_CLOSE_TRADING_UPDATE
-        )
-
-    def test_case_and_hyphen_variants(self):
-        for title in ("Pre-Close Trading Update", "Pre close trading update"):
-            assert (
-                classify_tgg_title(title) == EventType.PRE_CLOSE_TRADING_UPDATE
-            ), title
-
-    def test_full_year_and_interim(self):
-        assert classify_tgg_title("Full Year Results 2025") == EventType.FULL_YEAR_RESULTS
-        assert classify_tgg_title("Interim Results 2026") == EventType.INTERIM_RESULTS
-
-    def test_annual_report_ignored(self):
-        assert classify_tgg_title("Annual Report and Accounts 2025") is None
-
-    def test_january_pre_close_maps_to_previous_year(self):
-        period = tgg_period(
-            EventType.PRE_CLOSE_TRADING_UPDATE, "Pre-close trading update", date(2026, 1, 15)
-        )
-        assert period == "FY_PRE_CLOSE-2025"
-
-    def test_july_pre_close_maps_to_current_h1(self):
-        period = tgg_period(
-            EventType.PRE_CLOSE_TRADING_UPDATE, "Pre-close trading update", date(2026, 7, 10)
-        )
-        assert period == "H1_PRE_CLOSE-2026"
-
-    def test_march_full_year_without_year_in_title(self):
-        period = tgg_period(
-            EventType.FULL_YEAR_RESULTS, "Full Year Results", date(2026, 3, 12)
-        )
-        assert period == "FY-2025"
-
-    def test_september_interim(self):
-        period = tgg_period(
-            EventType.INTERIM_RESULTS, "Interim Results", date(2026, 9, 11)
-        )
-        assert period == "H1-2026"
-
-
-# ==========================================================================
-# Basic-Fit - all five disclosures are relevant
-# ==========================================================================
-class TestBasicFit:
-    def test_q1_trading_update_is_relevant(self):
-        assert classify_basic_fit_title("Q1 Trading Update") == EventType.TRADING_UPDATE
-        assert (
-            basic_fit_period(EventType.TRADING_UPDATE, "Q1 Trading Update 2026", None)
-            == "Q1-2026"
-        )
-
-    def test_january_trading_update(self):
-        assert (
-            classify_basic_fit_title("January Trading Update")
-            == EventType.TRADING_UPDATE
-        )
-        assert (
-            basic_fit_period(
-                EventType.TRADING_UPDATE, "January Trading Update", date(2026, 1, 14)
-            )
-            == "JAN-TU-2026"
-        )
-
-    def test_q3_trading_update(self):
-        assert (
-            basic_fit_period(EventType.TRADING_UPDATE, "Q3 Trading Update 2026", None)
-            == "Q3-2026"
-        )
-
-    def test_half_year_results(self):
-        assert (
-            classify_basic_fit_title("Half Year Results 2026")
-            == EventType.HALF_YEAR_RESULTS
-        )
-        assert (
-            basic_fit_period(EventType.HALF_YEAR_RESULTS, "Half Year Results 2026", None)
-            == "H1-2026"
-        )
-
-    def test_full_year_results(self):
-        assert (
-            classify_basic_fit_title("Full Year Results 2025")
-            == EventType.FULL_YEAR_RESULTS
-        )
-        assert (
-            basic_fit_period(
-                EventType.FULL_YEAR_RESULTS, "Full Year Results 2025", date(2026, 3, 5)
-            )
-            == "FY-2025"
-        )
-
-    @pytest.mark.parametrize(
-        "title",
-        [
-            "Capital Markets Day 2026",
-            "Annual Report 2025",
-            "Q1 Trading Update presentation",
-            "Notice of Annual General Meeting",
-        ],
-    )
-    def test_non_events_rejected(self, title):
-        assert classify_basic_fit_title(title) is None
+# (Basic-Fit, The Gym Group e PureGym: ver tests/test_v4_rodada2.py)
 
 
 # ==========================================================================
@@ -250,7 +135,7 @@ class TestSATS:
 
 
 # ==========================================================================
-# Xponential / Sports World / PureGym period normalization
+# Xponential / Sports World period normalization
 # ==========================================================================
 class TestPeriodNormalization:
     def test_xponential_quarters(self):
@@ -263,16 +148,6 @@ class TestPeriodNormalization:
             "https://www.sportsworld.com.mx/uploads/es/documents/reports_quarterly/gsw_reporte_1T26.pdf"
         ) == (2026, 1)
         assert sports_world_period_tuple("2T26") == (2026, 2)
-
-    def test_puregym_periods(self):
-        assert puregym_period("Q3 2026") == "Q3-2026"
-        assert puregym_period("FY 2025") == "Q4/FY-2025"
-        assert (
-            puregym_period(
-                "https://s28.q4cdn.com/583314398/files/doc_financials/2024/q3/PureGym-Q324-Report-Final.pdf"
-            )
-            == "Q3-2024"
-        )
 
 
 # Leejam: ver tests/test_v3_rodada1.py

@@ -16,10 +16,13 @@ manda um e-mail sobre ela.
 | Sports World | Reporte trimestral (1T a 4T) | Página "Reportes Trimestrales" |
 | SATS | "Qx Report" | Página "Reports & Presentations" |
 | Leejam | Resultados consolidados (trimestrais e anuais) | Painel "News and Announcements" do site de RI, que reproduz no mesmo dia os comunicados à bolsa saudita |
+| Basic-Fit | Trading updates (janeiro, Q1 e Q3), resultado semestral e anual | Lista de divulgações embutida na página "Financial Results" |
+| The Gym Group | Pre-close trading update (jan/jul), resultado anual e semestral | Página "Results, Reports and Presentations" |
+| PureGym | Relatório trimestral (o do 4º trimestre é o anual) | Catálogo de relatórios da página "Quarterly Results" |
 
 A Bluefit não publica "release de resultados", por isso o alerta dela é
-sobre as demonstrações financeiras. Basic-Fit, The Gym Group, PureGym e
-Benefit Systems estão desligadas enquanto são revisadas.
+sobre as demonstrações financeiras. A Benefit Systems está desligada enquanto
+é revisada.
 
 ## Como funciona
 

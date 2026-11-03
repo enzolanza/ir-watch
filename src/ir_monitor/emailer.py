@@ -154,6 +154,8 @@ PT_COMPANY_EVENT_TYPES = {
     ("bluefit", "quarterly_results"): "Demonstrações financeiras trimestrais (ITR)",
     ("sats", "quarterly_results"): "Relatório trimestral",
     ("sports_world", "earnings_release"): "Reporte trimestral",
+    ("puregym", "quarterly_results"): "Relatório trimestral",
+    ("the_gym_group", "interim_results"): "Resultado semestral",
 }
 
 
