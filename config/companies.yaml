@@ -2,8 +2,8 @@
 #
 # v2 (nov/2026): Bluefit, Selfit e Bodytech revisadas.
 # Rodada 1: Planet Fitness, Xponential, Sports World, SATS e Leejam religadas.
-# As demais continuam descritas abaixo, desligadas (enabled: false), até
-# serem revisadas nas próximas rodadas.
+# Rodada 2: Basic-Fit, The Gym Group e PureGym com leitores novos.
+# A Benefit Systems continua desligada (enabled: false) até a Rodada 3.
 #
 # min_documents / min_relevant: quantos documentos, no mínimo, o robô espera
 # encontrar.
@@ -74,27 +74,27 @@ companies:
   basic_fit:
     name: Basic-Fit
     monitor: basic_fit
-    enabled: false   # desligada na v2 (foco em Bluefit, Selfit e Bodytech)
+    enabled: true
+    # A lista organizada (título, data e PDF) vem embutida no HTML da página.
     primary_url: https://corporate.basic-fit.com/investors/financial-results
-    press_url: https://corporate.basic-fit.com/investors/press-releases
-    candidate_endpoints: []
+    min_relevant: 10
 
   the_gym_group:
     name: The Gym Group
     monitor: the_gym_group
-    enabled: false   # desligada na v2 (foco em Bluefit, Selfit e Bodytech)
+    enabled: true
+    # A página mostra as 12 divulgações mais recentes.
     primary_url: https://www.tggplc.com/investors/results-reports-and-presentations/
-    press_url: https://www.tggplc.com/investors/news/
+    min_relevant: 2
 
   puregym:
     name: PureGym
     monitor: puregym
-    enabled: false   # desligada na v2 (foco em Bluefit, Selfit e Bodytech)
-    # Confirmed live path (the /investor/financial-results/quarterly-results/
-    # URL in the brief now redirects here). Both are tried.
-    primary_url: https://corporate.puregym.com/investors/results-reports-and-presentations/default.aspx
-    overview_url: https://corporate.puregym.com/investors/default.aspx
-    candidate_endpoints: []
+    enabled: true
+    primary_url: https://corporate.puregym.com/investor/financial-results/quarterly-results/default.aspx
+    # Catálogo de relatórios que a página usa (plataforma Q4).
+    api_url: https://corporate.puregym.com/feed/FinancialReport.svc/GetFinancialReportList
+    min_relevant: 8
 
   sats:
     name: SATS
