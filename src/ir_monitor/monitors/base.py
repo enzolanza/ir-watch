@@ -105,6 +105,15 @@ class CompanyMonitor(ABC):
         logger.info(
             "company=%s action=classify relevant=%d", self.key, len(merged)
         )
+        # Proteção: página carregou, mas nenhum documento relevante foi
+        # reconhecido. Isso quase sempre significa que o site mudou, e não
+        # que a empresa nunca publicou nada. Tratar como falha (e avisar).
+        min_relevant = int(self.config.option("min_relevant", 0) or 0)
+        if len(merged) < min_relevant:
+            raise ParserFailure(
+                f"{self.key}: esperava pelo menos {min_relevant} documento(s) "
+                f"relevante(s), encontrou {len(merged)} - o site pode ter mudado"
+            )
         return candidates, merged
 
 

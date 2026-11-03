@@ -1,336 +1,182 @@
-"""Leejam Sports Company (Saudi Exchange, ticker 1830).
+"""Leejam Sports Company (bolsa saudita, código 1830).
 
-Two official sources feeding ONE event stream:
+Fonte: o painel "News and Announcements" do site de RI da Leejam
+(https://leejam.com.sa/investor-relations/disclosures-and-events/). Ele é
+fornecido pela Euroland e reproduz, no mesmo dia, os comunicados oficiais
+que a Leejam faz à bolsa saudita. O robô consulta a mesma lista que o painel
+usa: https://ksatools.eurolandir.com/tools/Pressreleases/Main/GetNews/
 
-    1. Saudi Exchange issuer announcements (primary detection). Allowlist:
-       "Interim Consolidated Financial Results" / "Annual Consolidated
-       Financial Results". Dividends, centre openings, meetings and contracts
-       are ignored.
-    2. Leejam IR Result Center (secondary, enrichment).
+Por que não a página "Result Center": ela é atualizada dias ou semanas
+depois do comunicado (o 3º trimestre de 2026 saiu na bolsa em 02/11/2026 e
+ainda não estava lá no dia seguinte). A bolsa em si bloqueia o acesso.
 
-Logical key is company + reporting_period. The period result - not each file -
-is the event: Financial Statements, Results Release and Earnings Presentation
-for the same period are one alert. If the second source confirms a period
-already alerted, the existing record is enriched and no email is sent.
+Regra: alerta nos comunicados "Announces Its Interim/Annual Consolidated
+Financial Results ...". Dividendos, aberturas de academias, assembleias e
+contratos são ignorados.
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from typing import Any
+from datetime import datetime, timezone
 
 from .. import http
 from ..models import CandidateEvent, EventType, NormalizedEvent
-from ..normalization import (
-    canonical_url,
-    normalize_year,
-    parse_date,
-    slug_title,
-    squash,
-)
-from .base import (
-    CompanyMonitor,
-    EndpointProbeMixin,
-    HTMLSourceMixin,
-    ParserFailure,
-    PlaywrightFallbackMixin,
-    candidate,
-)
+from ..normalization import slug_title, squash
+from ..util import now_local
+from .base import CompanyMonitor, ParserFailure
 
 logger = logging.getLogger(__name__)
 
-SOURCE_TADAWUL = "saudi_exchange_announcements"
-SOURCE_IR = "leejam_result_center"
-
-DEFAULT_TADAWUL_URL = (
-    "https://www.saudiexchange.sa/wps/portal/saudiexchange/newsandreports/"
-    "issuer-news/company-announcement?companySymbol=1830"
-)
-DEFAULT_IR_URL = "https://leejam.com.sa/investor-relations/result-center-and-reports/"
-
-RESULTS_ALLOWLIST = [
-    re.compile(r"\binterim\s+consolidated\s+financial\s+results\b"),
-    re.compile(r"\bannual\s+consolidated\s+financial\s+results\b"),
-]
-IGNORE_RE = re.compile(
-    r"\b(dividend|board\s+of\s+directors|general\s+assembly|shareholders?\s+meeting|"
-    r"contract|opening\s+of|new\s+center|zakat|sukuk|capital\s+increase|"
-    r"resignation|appointment|invitation)\b"
+SOURCE = "euroland_announcements"
+DEFAULT_API = "https://ksatools.eurolandir.com/tools/Pressreleases/Main/GetNews/"
+DEFAULT_COMPANY_CODE = "sa-1830"
+RELEASE_URL = (
+    "https://ksatools.eurolandir.com/tools/Pressreleases/GetPressRelease/"
+    "?ID={id}&lang=en-GB&companycode={code}"
 )
 
-PERIOD_END_RE = re.compile(r"(20\d{2})[-/](\d{2})[-/](\d{2})")
-QUARTER_WORD_RE = re.compile(r"\b([1-4])(?:st|nd|rd|th)\s+quarter\b")
-ANNUAL_RE = re.compile(r"\bannual\b")
-
-# Month of period end -> normalized reporting period label
-_MONTH_END_TO_PERIOD = {3: "Q1", 6: "Q2/H1", 9: "Q3/9M", 12: "Q4/FY"}
-_QUARTER_TO_LABEL = {1: "Q1", 2: "Q2/H1", 3: "Q3/9M", 4: "Q4/FY"}
-
-DOC_LABELS = {
-    "financial_statements": ("financial statement", "financial statements", "consolidated financial"),
-    "presentation": ("presentation", "earnings presentation"),
-    "results_release": ("results release", "press release", "earnings release"),
-    "transcript": ("transcript", "recording"),
-}
+RESULTS_RE = re.compile(r"\b(interim|annual)\s+consolidated\s+financial\s+results\b")
+REJECT_RE = re.compile(r"\b(dividend|standalone|stand-alone)\b")
+MONTH_END_RE = re.compile(
+    r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(march|june|september|december)\s+(20\d{2})\b"
+)
+ISO_END_RE = re.compile(r"\b(20\d{2})-(03|06|09|12)-(\d{2})\b")
+SPAN_RE = re.compile(r"\((three|six|nine|twelve)\s+months?\)")
+YEAR_RE = re.compile(r"\b(20\d{2})\b")
+_MONTH_TO_Q = {"march": 1, "june": 2, "september": 3, "december": 4}
+_ISO_TO_Q = {"03": 1, "06": 2, "09": 3, "12": 4}
+_SPAN_TO_Q = {"three": 1, "six": 2, "nine": 3, "twelve": 4}
+_LABEL = {1: "Q1-{y}", 2: "Q2/H1-{y}", 3: "Q3/9M-{y}", 4: "Q4/FY-{y}"}
 
 
-class LeejamMonitor(
-    EndpointProbeMixin, HTMLSourceMixin, PlaywrightFallbackMixin, CompanyMonitor
-):
-    key = "leejam"
-    # Either source alone is enough; both failing is a parser failure.
-    min_expected_candidates = 1
+def leejam_period(title: str) -> str | None:
+    """Período a partir da data de encerramento citada no título."""
+    low = slug_title(title)
+    match = MONTH_END_RE.search(low)
+    if match:
+        return _LABEL[_MONTH_TO_Q[match.group(2)]].format(y=match.group(3))
+    match = ISO_END_RE.search(low)
+    if match:
+        return _LABEL[_ISO_TO_Q[match.group(2)]].format(y=match.group(1))
+    span = SPAN_RE.search(low)
+    year = YEAR_RE.search(low)
+    if span and year:
+        return _LABEL[_SPAN_TO_Q[span.group(1)]].format(y=year.group(1))
+    return None
 
-    def fetch_candidates(self) -> list[CandidateEvent]:
-        items: list[CandidateEvent] = []
-        used: list[str] = []
 
-        try:
-            tadawul = self.fetch_tadawul()
-            if tadawul:
-                items.extend(tadawul)
-                used.append(SOURCE_TADAWUL)
-        except Exception as exc:  # noqa: BLE001 - the IR site may still answer
-            logger.info("company=%s source=tadawul error=%s", self.key, exc)
+def is_results_announcement(title: str) -> bool:
+    low = slug_title(title)
+    return bool(RESULTS_RE.search(low)) and not REJECT_RE.search(low)
 
-        try:
-            ir_items = self.fetch_result_center()
-            if ir_items:
-                items.extend(ir_items)
-                used.append(SOURCE_IR)
-        except Exception as exc:  # noqa: BLE001
-            logger.info("company=%s source=result_center error=%s", self.key, exc)
 
-        if not items:
-            raise ParserFailure(
-                "leejam: neither Saudi Exchange announcements nor the IR Result "
-                "Center produced items"
-            )
-        self.source_used = "+".join(used)
-        return items
-
-    # ------------------------------------------------------------------
-    def fetch_tadawul(self) -> list[CandidateEvent]:
-        endpoints = self.config.option("tadawul_candidate_endpoints", []) or []
-        payload = self.probe_endpoints(endpoints, _looks_like_announcement_payload)
-        if payload is not None:
-            return self.parse_tadawul_payload(payload)
-
-        url = self.config.option("tadawul_url", DEFAULT_TADAWUL_URL)
-        html = http.get_text(url)
-        return self.parse_tadawul_html(html, url)
-
-    def parse_tadawul_payload(self, payload: Any) -> list[CandidateEvent]:
-        out: list[CandidateEvent] = []
-        for row in _extract_rows(payload):
-            title = squash(
-                str(row.get("announcementTitle") or row.get("title") or row.get("subject") or "")
-            )
-            if not title:
-                continue
-            out.append(
-                candidate(
-                    self.key,
-                    SOURCE_TADAWUL,
-                    title,
-                    url=row.get("url") or row.get("link") or row.get("announcementUrl"),
-                    publication_date=parse_date(
-                        str(row.get("announcementDate") or row.get("date") or "")
-                    ),
-                    raw_row=row,
-                )
-            )
-        return out
-
-    def parse_tadawul_html(self, html: str, base_url: str) -> list[CandidateEvent]:
-        soup = self.soup_from(html)
-        out: list[CandidateEvent] = []
-        seen: set[str] = set()
-        for text, url, anchor in self.iter_links(soup, base_url):
-            low = slug_title(text)
-            if len(low) < 15:
-                continue
-            if not any(p.search(low) for p in RESULTS_ALLOWLIST):
-                continue
-            if url in seen:
-                continue
-            seen.add(url)
-            block = _block_text(anchor)
-            out.append(
-                candidate(
-                    self.key,
-                    SOURCE_TADAWUL,
-                    text,
-                    url=url,
-                    publication_date=parse_date(block[:120]),
-                    context=block,
-                )
-            )
-        return out
-
-    # ------------------------------------------------------------------
-    def fetch_result_center(self) -> list[CandidateEvent]:
-        url = self.config.option("ir_url", DEFAULT_IR_URL)
-        try:
-            html = http.get_text(url)
-            items = self.parse_result_center(html, url)
-            if items:
-                return items
-        except Exception as exc:  # noqa: BLE001
-            logger.info("company=%s action=ir_static_failed error=%s", self.key, exc)
-        html = self.render_html(url)
-        return self.parse_result_center(html, url)
-
-    def parse_result_center(self, html: str, base_url: str) -> list[CandidateEvent]:
-        soup = self.soup_from(html)
-        buckets: dict[str, dict] = {}
-        for text, url, anchor in self.iter_links(soup, base_url):
-            block = _block_text(anchor)
-            period = leejam_period(text, block) or leejam_period(url)
-            if not period:
-                continue
-            low = slug_title(f"{text} {url}")
-            if not (url.lower().endswith(".pdf") or "download" in low or "report" in low):
-                continue
-            label = _document_label(f"{text} {url}")
-            bucket = buckets.setdefault(
-                period, {"links": {}, "date": parse_date(block[:120])}
-            )
-            bucket["links"].setdefault(label, url)
-
-        return [
-            candidate(
-                self.key,
-                SOURCE_IR,
-                f"Leejam {period} Results",
-                url=bucket["links"].get("financial_statements")
-                or next(iter(bucket["links"].values()), None),
-                publication_date=bucket["date"],
-                period=period,
-                links=bucket["links"],
-            )
-            for period, bucket in buckets.items()
-        ]
-
-    # ------------------------------------------------------------------
-    def classify(self, cand: CandidateEvent) -> str | None:
-        if cand.source == SOURCE_IR:
-            return EventType.QUARTERLY_RESULTS
-        low = slug_title(cand.title)
-        if IGNORE_RE.search(low):
-            return None
-        if any(pattern.search(low) for pattern in RESULTS_ALLOWLIST):
-            return EventType.QUARTERLY_RESULTS
+def _parse_ms_date(value):
+    """Formato da Euroland: "/Date(1765090859000)/"."""
+    match = re.search(r"(\d{10,})", str(value or ""))
+    if not match:
+        return None
+    try:
+        return datetime.fromtimestamp(int(match.group(1)) / 1000, tz=timezone.utc).date()
+    except (OverflowError, ValueError, OSError):
         return None
 
-    def normalize(self, cand: CandidateEvent, event_type: str) -> NormalizedEvent | None:
-        period = cand.raw.get("period") or leejam_period(
-            cand.title, cand.raw.get("context", "")
+
+def parse_euroland_payload(
+    payload: dict, company: str = "leejam", code: str = DEFAULT_COMPANY_CODE
+) -> list[CandidateEvent]:
+    if not isinstance(payload, dict) or not isinstance(payload.get("News"), list):
+        raise ParserFailure("leejam: resposta do painel de comunicados em formato inesperado")
+    out: list[CandidateEvent] = []
+    for item in payload["News"]:
+        if not isinstance(item, dict) or not item.get("title"):
+            continue
+        news_id = item.get("ID")
+        out.append(
+            CandidateEvent(
+                company=company,
+                source=SOURCE,
+                title=squash(str(item["title"])),
+                url=RELEASE_URL.format(id=news_id, code=code) if news_id else None,
+                publication_date=_parse_ms_date(item.get("date")),
+                raw={"id": news_id, "type": item.get("type")},
+            )
         )
-        if not period:
+    return out
+
+
+class LeejamMonitor(CompanyMonitor):
+    min_expected_candidates = 1
+
+    def _years(self) -> list[int]:
+        year = now_local().year
+        return [year, year - 1]
+
+    def fetch_candidates(self) -> list[CandidateEvent]:
+        api = self.config.option("api_url", DEFAULT_API)
+        code = self.config.option("company_code", DEFAULT_COMPANY_CODE)
+        self.source_used = SOURCE
+        out: list[CandidateEvent] = []
+        for year in self._years():
+            form = {
+                "strDateFrom": f"01/01/{year}",
+                "strDateTo": f"31/12/{year}",
+                "typeFilter": "",
+                "orderBy": "0",
+                "pageIndex": "0",
+                "pageJummp": "100",
+                "hasTypeFilter": "false",
+                "searchPhrase": "",
+                "companyCode": code,
+                "onlyInsiderInfo": "false",
+                "lang": "en-GB",
+                "v": "",
+                "alwaysIncludeInsiders": "false",
+                "strYears": "",
+            }
+            response = http.request(
+                "POST",
+                api,
+                data=form,
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json, text/javascript, */*",
+                },
+            )
+            response.raise_for_status()
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise ParserFailure("leejam: o painel de comunicados não respondeu em JSON") from exc
+            out.extend(parse_euroland_payload(payload, self.key, code))
+        return out
+
+    def classify(self, candidate: CandidateEvent) -> str | None:
+        if not is_results_announcement(candidate.title):
             return None
-        links = cand.raw.get("links", {})
+        if "annual" in slug_title(candidate.title).split("consolidated")[0]:
+            return EventType.FULL_YEAR_RESULTS
+        return EventType.INTERIM_RESULTS
+
+    def normalize(self, candidate: CandidateEvent, event_type: str) -> NormalizedEvent | None:
+        period = leejam_period(candidate.title)
+        if not period:
+            # Nunca descartar em silêncio: usa o número do comunicado.
+            period = f"doc-{candidate.raw.get('id')}"
+            logger.warning(
+                "company=leejam action=unknown_period title=%r -> %s", candidate.title, period
+            )
         return NormalizedEvent(
             company=self.key,
             event_type=event_type,
             reporting_period=period,
-            title=cand.title,
-            source=cand.source,
-            publication_date=cand.publication_date,
-            primary_url=cand.url,
-            document_url=links.get("financial_statements") or cand.url,
-            document_identifier=canonical_url(cand.url),
-            financial_statements_url=links.get("financial_statements"),
-            earnings_presentation_url=links.get("presentation"),
-            results_release_url=links.get("results_release"),
-            transcript_url=links.get("transcript"),
-            saudi_exchange_announcement_url=(
-                cand.url if cand.source == SOURCE_TADAWUL else None
-            ),
-            issuer="Leejam Sports Company",
-            ticker="1830",
+            title=candidate.title,
+            source=candidate.source,
+            publication_date=candidate.publication_date,
+            primary_url=candidate.url,
+            document_url=candidate.url,
+            document_identifier=str(candidate.raw.get("id") or "") or None,
             key_includes_event_type=False,
         )
-
-
-def leejam_period(text: str, context: str = "") -> str | None:
-    """Normalize to Q1-YYYY, Q2/H1-YYYY, Q3/9M-YYYY or Q4/FY-YYYY.
-
-    ``context`` is broader surrounding page text (e.g. the DOM block around a
-    link) that may legitimately carry an explicit date or quarter number, but
-    is also where unrelated page chrome leaks in - a nearby "Annual Reports"
-    navigation heading, for instance. The bare "annual" fallback below is
-    therefore only trusted in ``text`` (the item's own title/link text), never
-    in ``context`` alone, so a Q3 document sitting next to an "Annual
-    Reports" section link is never relabelled Q4/FY.
-    """
-    if not text and not context:
-        return None
-    low = slug_title(f"{text} {context}")
-    low_text = slug_title(text)
-
-    # Announcements name the period end date, e.g. "... Ending on 2026-03-31".
-    match = PERIOD_END_RE.search(low)
-    if match:
-        year, month = int(match.group(1)), int(match.group(2))
-        label = _MONTH_END_TO_PERIOD.get(month)
-        if label:
-            return f"{label}-{year}"
-
-    year_match = re.search(r"\b(20\d{2})\b", low)
-    year = int(year_match.group(1)) if year_match else None
-
-    quarter_match = QUARTER_WORD_RE.search(low) or re.search(r"\bq([1-4])\b", low)
-    if quarter_match and year:
-        quarter = int(quarter_match.group(1))
-        return f"{_QUARTER_TO_LABEL[quarter]}-{year}"
-    if ANNUAL_RE.search(low_text) and year:
-        return f"Q4/FY-{year}"
-    return None
-
-
-def _document_label(text: str) -> str:
-    low = slug_title(text)
-    for label, needles in DOC_LABELS.items():
-        if any(needle in low for needle in needles):
-            return label
-    return "other"
-
-
-def _looks_like_announcement_payload(payload: Any) -> bool:
-    rows = _extract_rows(payload)
-    if not rows:
-        return False
-    keys = {k.lower() for row in rows[:5] for k in row}
-    return bool(keys & {"announcementtitle", "title", "subject"})
-
-
-def _extract_rows(payload: Any) -> list[dict[str, Any]]:
-    if isinstance(payload, list):
-        return [r for r in payload if isinstance(r, dict)]
-    if isinstance(payload, dict):
-        for key in ("data", "items", "results", "announcements", "records", "content"):
-            value = payload.get(key)
-            if isinstance(value, list):
-                return [r for r in value if isinstance(r, dict)]
-            if isinstance(value, dict):
-                nested = _extract_rows(value)
-                if nested:
-                    return nested
-    return []
-
-
-def _block_text(anchor, max_levels: int = 5) -> str:
-    node = anchor
-    best = ""
-    for _ in range(max_levels):
-        node = node.parent
-        if node is None:
-            break
-        text = squash(node.get_text(" ", strip=True))
-        if len(text) > len(best):
-            best = text
-        if len(best) > 100:
-            break
-    return best[:600]

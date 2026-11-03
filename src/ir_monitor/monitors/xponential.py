@@ -65,33 +65,54 @@ class XponentialMonitor(HTMLSourceMixin, RSSSourceMixin, CompanyMonitor):
     min_expected_candidates = 1
 
     def fetch_candidates(self) -> list[CandidateEvent]:
+        """Lê as DUAS fontes e junta tudo.
+
+        O comunicado de resultado costuma aparecer no feed de notícias antes
+        de a página "Quarterly Results" ser atualizada. Como as duas fontes
+        produzem a mesma chave (empresa + tipo + período), o resultado gera
+        um alerta só, pela fonte que aparecer primeiro.
+        """
+        out: list[CandidateEvent] = []
+        used: list[str] = []
+        errors: list[str] = []
+
         url = self.config.primary_url or DEFAULT_URL
         try:
             html = http.get_text(url)
-            candidates = self.parse_quarterly_page(html, url)
-            if candidates:
-                self.source_used = SOURCE_HTML
-                return candidates
-        except Exception as exc:  # noqa: BLE001 - fall through to RSS fallback
-            logger.info("company=%s action=html_failed error=%s", self.key, exc)
+            page = self.parse_quarterly_page(html, url)
+            if page:
+                out.extend(page)
+                used.append(SOURCE_HTML)
+        except Exception as exc:  # noqa: BLE001 - a outra fonte ainda pode funcionar
+            errors.append(f"page: {type(exc).__name__}: {exc}")
+            logger.warning("company=%s action=html_failed error=%s", self.key, exc)
 
-        # Documented fallback: official news RSS.
-        entries = self.fetch_feed_entries(self.config.option("rss_url", DEFAULT_RSS))
-        if not entries:
-            raise ParserFailure("xponential: quarterly page and RSS both empty")
-        self.source_used = SOURCE_RSS
-        return [
-            candidate(
-                self.key,
-                SOURCE_RSS,
-                entry["title"],
-                url=entry.get("link"),
-                publication_date=entry.get("published"),
-                guid=entry.get("guid"),
-                kind="rss",
+        try:
+            entries = self.fetch_feed_entries(self.config.option("rss_url", DEFAULT_RSS))
+            if entries:
+                used.append(SOURCE_RSS)
+            out.extend(
+                candidate(
+                    self.key,
+                    SOURCE_RSS,
+                    entry["title"],
+                    url=entry.get("link"),
+                    publication_date=entry.get("published"),
+                    guid=entry.get("guid"),
+                    kind="rss",
+                )
+                for entry in entries
             )
-            for entry in entries
-        ]
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"rss: {type(exc).__name__}: {exc}")
+            logger.warning("company=%s action=rss_failed error=%s", self.key, exc)
+
+        if not out:
+            raise ParserFailure(
+                "xponential: página e feed sem resultados" + (f" ({'; '.join(errors)})" if errors else "")
+            )
+        self.source_used = "+".join(used)
+        return out
 
     # ------------------------------------------------------------------
     def parse_quarterly_page(self, html: str, base_url: str) -> list[CandidateEvent]:
